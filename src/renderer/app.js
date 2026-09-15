@@ -3038,6 +3038,33 @@ $("btn-web-save")?.addEventListener("click", async () => {
 	}
 });
 
+/* ---- P61：生图 API 设置（baseUrl/model/key，默认智谱免配置） ---- */
+(async () => {
+	try {
+		const s = (await window.openpi.settingsGet()) ?? {};
+		if (s.image?.baseUrl) $("image-baseurl").value = s.image.baseUrl;
+		if (s.image?.model) $("image-model").value = s.image.model;
+		if (s.image?.apiKey) $("image-key").value = s.image.apiKey;
+	} catch { /* 主进程旧版本 */ }
+})();
+$("btn-image-save")?.addEventListener("click", async () => {
+	const msg = $("image-msg");
+	try {
+		await window.openpi.settingsSet({
+			image: {
+				baseUrl: $("image-baseurl").value.trim(),
+				model: $("image-model").value.trim(),
+				apiKey: $("image-key").value.trim(),
+			},
+		});
+		msg.textContent = "已保存。新会话生效；留空的字段回落默认（智谱 CogView-4）";
+		msg.style.color = "var(--ok, #7ec97e)";
+	} catch (err) {
+		msg.textContent = `保存失败: ${err.message ?? err}`;
+		msg.style.color = "var(--err, #ff7a7a)";
+	}
+});
+
 /* ---- P33：自动更新卡 ---- */
 let updateState = null;
 function renderUpdateCard(s) {

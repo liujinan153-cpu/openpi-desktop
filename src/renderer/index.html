@@ -385,6 +385,21 @@
 					<div id="web-msg" class="msg-tip" style="margin-top:6px"></div>
 				</div>
 
+				<div id="image-card">
+					<p class="small"><b><i data-lucide="image"></i> 生图 API</b> <span class="dim small">默认走智谱 CogView-4（免配置）；要接第三方生图服务（OpenAI 兼容 images API）才需要填</span></p>
+					<div class="form-row">
+						<input id="image-baseurl" type="text" placeholder="Base URL（默认 https://open.bigmodel.cn/api/paas/v4）" style="flex:1" />
+					</div>
+					<div class="form-row">
+						<input id="image-model" type="text" placeholder="模型（默认 cogview-4，可填 image-2 等）" style="flex:1" />
+						<input id="image-key" type="password" placeholder="API key（留空则用智谱 key）" style="flex:1" />
+					</div>
+					<div class="form-row">
+						<button id="btn-image-save" class="btn primary">保存</button>
+					</div>
+					<div id="image-msg" class="msg-tip" style="margin-top:6px"></div>
+				</div>
+
 				<div id="ctx-card">
 					<p class="small"><b><i data-lucide="scroll-text"></i> 上下文管理</b> <span class="dim small">接近窗口上限时自动把历史压缩成摘要（默认开）；工具栏 🗜 可随时手动压缩</span></p>
 					<div class="form-row">
