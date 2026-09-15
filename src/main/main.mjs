@@ -447,6 +447,7 @@ app.whenReady().then(async () => {
 		const p = path.join(getAgentDir(), 'hooks.json');
 		if (!fs.existsSync(p)) {
 			fs.writeFileSync(p, JSON.stringify([
+				{ _note: 'P54 验证模板：write/edit 写 JS 后自动语法检查（after 阶段失败仅记日志，不拦截）；也可换成项目自己的 lint/test 命令', on: ['write', 'edit'], phase: 'after', command: 'node --check "{{input.path}}"', timeoutMs: 10000 },
 				{ _note: '示例：write/edit 工具调用后自动记录到文件（按需修改后重启应用生效）', on: ['write', 'edit'], phase: 'after', command: 'node -e "require(\'fs\').appendFileSync(process.env.USERPROFILE + \'/Desktop/hook-log.txt\', JSON.stringify(process.argv[1]) + String.fromCharCode(10))" "{{input.path}}"', timeoutMs: 10000 },
 				{ _note: '示例：bash 调用前拦截演示——命令失败即拦截（默认 blockOnError 为假，仅记日志）', on: 'bash', phase: 'before', command: 'exit 0', blockOnError: false },
 			], null, 2));

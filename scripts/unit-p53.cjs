@@ -83,4 +83,5 @@ assert(git.checkpointSystemPrompt() === "", "非 git 目录不注入系统提示
 // ===== 场景5：系统提示注入（git 仓库）=====
 gitc.setGitWorkspace(s1);
 assert(git.checkpointSystemPrompt().includes("git_diff"), "git 仓库注入提示词");
+assert(git.verificationSystemPrompt().includes("node --check"), "P54 验证闭环提示注入（git 仓库）");
 console.log("\n全部通过 ✅");

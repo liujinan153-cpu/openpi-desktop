@@ -26,7 +26,8 @@ import { Type } from "typebox";
 import { createSandbox, bindSession, cleanupExpired, sandboxRoot } from "./workspace-store.mjs";
 import { webTools, setWebSettings } from "./web-tools.mjs"; // P47 联网检索（webfetch/websearch）
 import { browserTools, BROWSER_WRITE } from "./browser-tools.mjs"; // P52 浏览器控制
-import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, setGitWorkspace } from "./git-checkpoint.mjs"; // P53 git 检查点
+import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, verificationSystemPrompt, setGitWorkspace } from "./git-checkpoint.mjs"; // P53 git 检查点 + P54 验证闭环
+import { memoryTools, memorySystemPrompt, setMemoryWorkspace } from "./memory-tools.mjs"; // P55 项目记忆
 
 /** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
 function buildSubagentTool(host) {
@@ -263,7 +264,9 @@ export class AgentHost {
 			console.error(`[mcp] ensure failed: ${err.message ?? err}`);
 		}
 		const resourceLoader = await this.#buildLoader(workspace, mcpTools);
-		setGitWorkspace(workspace === null ? null : (workspace ?? path.join(os.homedir(), "openpi-workspace"))); // P53：注入检查点工作目录（ctx.cwd 不可靠，是进程 cwd）
+		const wsResolved = workspace === null ? null : (workspace ?? path.join(os.homedir(), "openpi-workspace"));
+		setGitWorkspace(wsResolved); // P53：注入检查点工作目录（ctx.cwd 不可靠，是进程 cwd）
+		setMemoryWorkspace(wsResolved); // P55：注入记忆目录
 		const { session, modelFallbackMessage } = await createAgentSession({
 			cwd: workspace || undefined,
 			model,
@@ -271,7 +274,7 @@ export class AgentHost {
 			modelRuntime: this.modelRuntime,
 			sessionManager,
 			resourceLoader,
-			customTools: [...webTools, ...browserTools, ...gitTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理
+			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆
 		});
 
 		// 扩展 UI 桥接（M2）：confirm/select/input → 渲染层模态
@@ -684,7 +687,7 @@ export class AgentHost {
 				sessionManager: SessionManager.inMemory(this.workspace || process.cwd()), // 零文件残留
 				resourceLoader,
 				tools: ["read", "grep", "find", "ls"], // 只读白名单：子代理不能写/执行，不绕过审批
-				customTools: [...webTools, ...gitTools], // P47 联网 + P53 检查点；子代理不给浏览器工具（受控 Chromium 单实例，并发冲突且无必要）
+				customTools: [...webTools, ...gitTools, memoryTools[0]], // P47 联网 + P53 检查点 + P55 记忆只读；子代理不给浏览器工具（受控 Chromium 单实例）也不给 memory_write（记忆由主代理统一维护）
 			});
 			sub = session;
 			const onAbort = () => session.abort().catch(() => {});
@@ -920,7 +923,7 @@ function checkpointExtension(host) {
  * 通过 ctx.ui.confirm（由 AgentHost.#uiContext 桥接到桌面模态）。
  */
 /** 审批模式 holder：readonly 只读 / auto-edit 自动编辑（默认）/ full-auto 全自动 */
-const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）；P53：git_status/git_diff 只读直通
+const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）；P53：git_status/git_diff 只读直通；P55：memory_read 只读直通
 const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）
@@ -1041,8 +1044,12 @@ function planPromptExtension(hostRef) {
 		pi.on("before_agent_start", async (event) => {
 			if (hostRef.mode !== "plan") {
 				// P53：非 plan 档位下，git 仓库工作区注入检查点提示（改完代码用 git_diff 自证）
+				// P54：同点注入验证闭环约定（改完必须跑测试/构建贴证据）
 				const cp = checkpointSystemPrompt(event.cwd || hostRef.workspace || process.cwd());
-				return cp ? { systemPrompt: event.systemPrompt + cp } : undefined;
+				const vf = verificationSystemPrompt();
+				const memo = memorySystemPrompt();
+				const extra = (cp ? cp : "") + (vf ? vf : "") + (memo ? memo : "");
+				return extra ? { systemPrompt: event.systemPrompt + extra } : undefined;
 			}
 			return {
 				systemPrompt:

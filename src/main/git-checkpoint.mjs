@@ -127,7 +127,7 @@ export const gitTools = [
 		description:
 			"查看当前工作区 git 状态：变更文件列表 + OpenPi 检查点历史（新→旧）。只读，不需要用户确认。",
 		parameters: {},
-		execute() {
+		execute(_id) {
 			const cwd = cwdOf();
 			if (!isGitRepo(cwd)) {
 				return { content: [{ type: "text", text: "当前工作区不是 git 仓库（OpenPi 检查点功能不可用，可让用户初始化 git）。" }], details: { ok: false } };
@@ -146,7 +146,7 @@ export const gitTools = [
 		description:
 			"查看代码差异（改动证据）：默认对照 HEAD；传 checkpoint=true 对照最近一次 OpenPi 检查点。只读。",
 		parameters: { type: "object", properties: { checkpoint: { type: "boolean" } } },
-		execute(params = {}) {
+		execute(_id, params = {}) {
 			const cwd = cwdOf();
 			const ref = params.checkpoint ? "refs/openpi/checkpoints" : "HEAD";
 			const r = diffVs(cwd, ref);
@@ -162,7 +162,7 @@ export const gitTools = [
 			type: "object",
 			properties: { checkpoint: { type: "string", description: "快照 id（git_status 里查）" } },
 		},
-		execute(params = {}) {
+		execute(_id, params = {}) {
 			const cwd = cwdOf();
 			const ref = params.checkpoint || "refs/openpi/checkpoints";
 			const r = rollbackTo(cwd, ref);
@@ -182,6 +182,30 @@ export function autoCheckpointIfNeeded(cwd, label) {
 }
 
 /** P53b：主会话注入的提示词段落（仅 git 仓库时） */
+/**
+ * P54 验证闭环：系统提示约定——改动代码后必须跑测试/构建并贴证据，跑不了要说明原因。
+ * 与检查点提示同一注入点（before_agent_start），git 仓库工作区才注入（避免普通聊天噪音）。
+ */
+export function verificationSystemPrompt() {
+	const cwd = _workspace;
+	if (!cwd || !isGitRepo(cwd)) return "";
+	return (
+		"\n\n## 验证闭环（自我验证，始终生效）\n" +
+		"改动代码的任务，在向用户汇报「完成」之前必须先自证：\n" +
+		"1. 优先跑项目已有的测试/构建命令（npm test / pytest / tsc --noEmit 等，从 package.json 或项目文件里发现）；\n" +
+		"2. 没有测试就写最小验证：对改动的 JS 文件跑 node --check 语法检查，或写一个一次性脚本实际运行新函数；\n" +
+		"3. 汇报时附上验证命令与输出摘录作为证据（例：`node --check src/lib.js` → 无输出即语法 OK）；\n" +
+		"4. 确实无法验证（缺依赖/缺环境）时，明确说明原因和你尝试过什么，不要静默跳过。\n"
+	);
+}
+
+/**
+ * 注入点：非 plan 档位拼装检查点 + 验证闭环提示（P53 + P54）。
+ */
+export function selfCheckPrompts() {
+	return checkpointSystemPrompt() + verificationSystemPrompt();
+}
+
 export function checkpointSystemPrompt() {
 	const cwd = _workspace;
 	if (!cwd) return "";
