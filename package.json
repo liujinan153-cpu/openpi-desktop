@@ -1,0 +1,77 @@
+{
+  "name": "openpi-desktop",
+  "version": "0.42.1",
+  "private": true,
+  "type": "module",
+  "description": "OpenPi Desktop - desktop agent harness powered by pi coding agent SDK",
+  "main": "src/main/main.mjs",
+  "scripts": {
+    "poc": "node scripts/poc-node.mjs",
+    "start": "electron .",
+    "e2e:all": "node scripts/e2e-all.mjs",
+    "dist": "node scripts/dist.mjs",
+    "dist:skip-e2e": "electron-builder --win"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.85.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "better-sqlite3": "^13.0.3",
+    "dompurify": "^3.4.15",
+    "echarts": "^6.1.0",
+    "electron-updater": "^6.8.9",
+    "highlight.js": "^11.12.0",
+    "lucide": "^1.46.0",
+    "mammoth": "^1.12.3",
+    "marked": "^18.0.13",
+    "typebox": "^1.3.7",
+    "xlsx": "^0.18.5",
+    "chrome-remote-interface": "^0.34.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2"
+  },
+  "overrides": {
+    "@noble/hashes": "1.8.0"
+  },
+  "build": {
+    "appId": "dev.openpi.desktop",
+    "productName": "OpenPi Desktop",
+    "afterPack": "scripts/after-pack.cjs",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "vendor/**/*",
+      "package.json",
+      "resources/**/*",
+      "!resources/runtime/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "vendor/**/*",
+      "resources/skills/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  }
+}

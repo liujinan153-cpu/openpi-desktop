@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8" />
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data: https:; media-src 'none'; connect-src 'none'" />
+	<title>OpenPi Desktop</title>
+	<link rel="stylesheet" href="style.css" />
+	<link rel="stylesheet" href="vendor/hl-theme.css" />
+</head>
+<body>
+	<div id="app">
+		<!-- 会话侧栏 -->
+		<aside id="sidebar">
+			<button id="btn-new-side" class="side-new" title="新建会话 (Ctrl+N)"><span class="ic"><i data-lucide="pencil"></i></span>新对话</button>
+			<div class="side-search"><input id="session-filter" class="input" placeholder="搜索会话 (Ctrl+K)…" /></div>
+			<div class="side-tabs">
+				<button id="tab-projects" class="on">项目</button>
+				<button id="tab-flat">聊天</button>
+			</div>
+			<div id="session-list" class="side-list"><div class="side-empty">加载中…</div></div>
+		</aside>
+
+		<!-- 主列 -->
+		<div id="main-col">
+			<header id="topbar">
+				<button id="btn-sidebar" class="icon-btn" title="收起/展开侧栏"><i data-lucide="panel-left"></i></button>
+				<div class="brand">OpenPi <span class="tag">Desktop</span></div>
+				<div class="spacer"></div>
+				<button id="btn-settings" class="icon-btn" title="模型与供应商设置"><i data-lucide="settings"></i></button>
+				<button id="btn-theme" class="icon-btn" title="切换亮/暗主题"><i data-lucide="moon" class="ic-dark"></i><i data-lucide="sun" class="ic-light"></i></button>
+				<button id="btn-dock" class="icon-btn" title="显示/隐藏侧边面板 (Ctrl+Alt+B)">▤</button>
+			</header>
+
+			<!-- M5：当前会话标题 tab -->
+			<div id="chat-tab" hidden>
+				<span class="ct-dot"></span>
+				<span id="chat-tab-title">新会话</span>
+				<div class="spacer"></div>
+				<button id="chat-tab-close" title="结束当前会话，开新会话"><i data-lucide="x"></i></button>
+			</div>
+
+			<main id="chat"></main>
+
+			<footer id="composer">
+				<!-- 工作区选择器（ZCode 式）：搜索 / 最近项目 / 打开文件夹 / 不在项目中工作 -->
+				<div id="ws-picker" hidden>
+					<input id="ws-search" class="input" placeholder="搜索工作区…" />
+					<div id="ws-list"></div>
+					<button id="ws-open-folder" class="ws-action"><i data-lucide="folder-open"></i> <span>打开文件夹…</span></button>
+					<button id="ws-no-project" class="ws-action"><i data-lucide="message-circle"></i> <span>不在项目中工作</span></button>
+				</div>
+				<div id="queue-badge" class="queue hidden"></div>
+				<!-- P35：任务清单条（todo_write 维护，输入框上方实时勾选） -->
+				<div id="todo-bar" hidden>
+					<div class="todo-head"><span id="todo-progress"></span><button id="todo-collapse" class="icon-btn" title="收起/展开">▾</button></div>
+					<div id="todo-list"></div>
+				</div>
+				<!-- P35：计划模式批准条（P35.1 升级为结构化计划卡片） -->
+				<div id="plan-bar" hidden>
+					<div class="plan-card">
+						<div class="plan-head"><i data-lucide="clipboard-list"></i> 执行计划<span id="plan-steps-count" class="dim small"></span></div>
+						<div id="plan-goal"></div>
+						<div id="plan-steps"></div>
+						<div id="plan-risks" class="small dim"></div>
+					</div>
+					<div class="plan-actions">
+						<button id="btn-plan-approve" class="btn primary small"><i data-lucide="check"></i> 批准执行</button>
+						<button id="btn-plan-dismiss" class="btn ghost small">继续讨论</button>
+					</div>
+				</div>
+				<!-- / 技能引用菜单（对标 ZCode slash 弹层） -->
+				<div id="slash-menu" hidden>
+					<div id="slash-list"></div>
+					<div class="slash-hint dim small">↑↓ 选择 · Enter/Tab 引用 · Esc 关闭</div>
+				</div>
+				<div id="at-menu" hidden>
+					<div id="at-list"></div>
+					<div class="slash-hint dim small">↑↓ 选择 · Enter/Tab 插入路径 · Esc 关闭</div>
+				</div>
+				<div class="composer-card">
+					<div class="ctx-chips">
+						<button id="btn-workspace" class="chip" title="选择工作区文件夹"><i data-lucide="folder"></i> <span id="workspace-label">选择文件夹</span></button>
+						<button id="chip-branch" class="chip" hidden title="当前分支（点击打开 Git 面板）"><i data-lucide="git-branch"></i> <span id="branch-label"></span></button>
+						<button id="chip-agents" class="chip" hidden title="本会话加载的 AGENTS.md 指令文件（点击查看）"><i data-lucide="scroll-text"></i> <span id="agents-label"></span></button>
+						<select id="approval-select" class="chip chip-select" title="审批模式：只读=所有修改都需确认；自动编辑=改文件自动、危险命令确认；全自动=全部放行">
+							<option value="readonly">只读</option>
+							<option value="auto-edit" selected>自动编辑</option>
+							<option value="full-auto">全自动</option>
+							<option value="plan">计划模式</option>
+						</select>
+						<button id="allow-btn" class="chip" title="命令允许清单：只读/自动编辑档位下，命中清单且非危险的命令免确认直接执行（对齐 Cursor allowlist）"><i data-lucide="settings"></i> 允许清单</button>
+						<select id="handoff-select" class="chip chip-select" title="上下文接力：占用达 80% 时自动压缩出交接摘要，开新会话继续任务（原会话归档可回看）">
+							<option value="auto" selected>自动接力</option>
+							<option value="ask">接力前询问</option>
+							<option value="off">手动</option>
+						</select>
+					</div>
+					<div id="img-bar" hidden></div>
+					<textarea id="input" rows="1" placeholder="随心输入…（Enter 发送 / 运行中 Enter = 插话 / 支持粘贴或拖入图片）"></textarea>
+					<div class="composer-row">
+						<button id="btn-attach" class="icon-btn" title="插入图片">＋</button>
+						<div class="spacer"></div>
+						<select id="thinking-select" class="chip chip-select" title="思考等级">
+							<option value="off">思考: off</option>
+							<option value="minimal">minimal</option>
+							<option value="low">low</option>
+							<option value="medium">medium</option>
+							<option value="high">high</option>
+							<option value="xhigh">xhigh</option>
+						</select>
+						<select id="model-select" class="chip chip-select" title="模型"></select>
+						<button id="btn-send" class="btn-send" title="发送">↑</button>
+					</div>
+				</div>
+				<input type="file" id="file-input" accept="image/*" multiple hidden />
+				<div id="statusbar">
+					<span id="status-left" class="dim">初始化中…</span>
+					<div class="spacer"></div>
+					<span id="usage" class="dim mono"></span>
+				</div>
+			</footer>
+		</div>
+
+			<!-- P0：右侧 Dock（标签坞，对标 Codex：审核 / 预览） -->
+			<div id="dock" hidden>
+				<div id="dock-tabs">
+					<button class="dock-tab" data-pane="review" title="工作区改动审阅 (Ctrl+Shift+G)"><i data-lucide="search"></i> 审核 <span id="review-cnt" class="dock-cnt" hidden></span></button>
+					<button class="dock-tab" data-pane="preview" title="实时预览 (Ctrl+T)"><i data-lucide="globe"></i> 预览</button>
+					<button class="dock-tab" data-pane="terminal" title="工作区终端">⌨ 终端</button>
+					<button class="dock-tab" data-pane="files" title="工作区文件 (Ctrl+P)"><i data-lucide="folder"></i> 文件</button>
+				<button class="dock-tab" data-pane="tasks" title="后台并行任务（多任务同时跑，互不阻塞）"><i data-lucide="zap"></i> 任务 <span id="tasks-cnt" class="dock-cnt" hidden></span></button>
+				<button class="dock-tab" data-pane="agents" title="AGENTS.md 指令文件（注入每次会话的系统提示词）"><i data-lucide="scroll-text"></i> 指令</button>
+					<div class="spacer"></div>
+					<button id="dock-close" class="icon-btn" title="关闭面板"><i data-lucide="x"></i></button>
+				</div>
+
+				<!-- 指令 pane：AGENTS.md / CLAUDE.md（pi 内核同款发现规则：全局 + 工作区向上查找） -->
+				<div id="dock-pane-tasks" class="dock-pane" hidden>
+					<div class="review-head">
+						<span class="small dim">后台并行任务（与主会话同时跑；无 UI 弹窗，危险命令自动拒绝）</span>
+						<div class="spacer"></div>
+						<button id="tasks-refresh" class="icon-btn" title="刷新">↻</button>
+					</div>
+					<div id="tasks-body" class="review-body"><div class="dim small" style="padding:12px">暂无后台任务。发起新任务：</div></div>
+					<div class="review-commit">
+						<input id="task-input" class="input" style="flex:1" placeholder="描述要后台并行跑的任务…" maxlength="2000" />
+						<button id="task-go" class="btn primary">▶ 后台运行</button>
+					</div>
+				</div>
+
+				<div id="dock-pane-agents" class="dock-pane" hidden>
+					<div class="review-head">
+						<span class="small dim">AGENTS.md / CLAUDE.md（全局 + 工作区向上查找）</span>
+						<div class="spacer"></div>
+						<button id="agents-refresh" class="icon-btn" title="重新扫描">↻</button>
+					</div>
+					<div id="agents-body" class="review-body"><div class="dim small" style="padding:12px">加载中…</div></div>
+					<div class="review-commit">
+						<button id="agents-generate" class="btn primary" style="flex:1"><i data-lucide="wand-sparkles"></i> 让 Agent 生成 / 更新工作区 AGENTS.md</button>
+					</div>
+				</div>
+
+				<!-- 审核 pane：变更列表 + 逐文件 diff + 还原/提交 -->
+				<div id="dock-pane-review" class="dock-pane" hidden>
+					<div class="review-head">
+						<span id="review-branch" class="mono small dim">—</span>
+						<div class="spacer"></div>
+						<button id="review-protect" class="rv-btn" title="切到专用 openpi/* 分支上干活，保护主分支（需工作区干净）"><i data-lucide="git-branch"></i> 保护分支</button>
+						<button id="review-mergeback" class="rv-btn" title="把当前 openpi/* 分支合并回主分支" hidden>⇥ 合并主分支</button>
+						<button id="review-refresh" class="icon-btn" title="刷新状态">↻</button>
+					</div>
+					<div id="review-body" class="review-body"><div class="dim small" style="padding:12px">加载中…</div></div>
+					<div class="review-commit">
+						<input id="review-msg" class="input" placeholder="提交信息（commit message）" style="flex:1" />
+						<button id="review-commit-btn" class="btn primary">提交全部</button>
+					</div>
+				</div>
+
+				<!-- 终端 pane：工作区内执行命令，流式输出 -->
+				<div id="dock-pane-terminal" class="dock-pane" hidden>
+					<div class="term-bar">
+						<span id="term-cwd" class="mono small dim" title="工作区目录">—</span>
+						<div class="spacer"></div>
+						<button id="term-clear" class="icon-btn" title="清空输出"><i data-lucide="eraser"></i></button>
+					</div>
+					<div id="term-out" class="term-out"><div class="dim small" style="padding:8px 10px">输入命令后 Enter 执行（在工作区目录内，独立于 Agent 的会话）。</div></div>
+					<div class="term-input-row">
+						<span class="term-ps">›</span>
+						<input id="term-in" class="term-in" placeholder="输入命令，Enter 执行…" autocomplete="off" spellcheck="false" />
+						<button id="term-stop" class="icon-btn term-stop" title="终止当前命令 (Ctrl+C)" hidden>■</button>
+					</div>
+				</div>
+
+				<!-- 文件 pane：工作区文件树 + 只读预览 -->
+				<div id="dock-pane-files" class="dock-pane" hidden>
+					<div class="files-bar">
+						<input id="files-filter" class="input" placeholder="搜索文件名…" />
+					</div>
+					<div id="files-tree" class="files-tree"><div class="dim small" style="padding:12px">加载中…</div></div>
+					<div id="files-view-wrap" hidden>
+						<div class="fv-bar">
+							<button id="fv-back" class="icon-btn" title="返回文件树">←</button>
+							<button id="fv-preview" class="icon-btn" title="在预览中打开（内置浏览器）" hidden><i data-lucide="globe"></i></button>
+							<span id="fv-path" class="mono small dim"></span>
+						</div>
+						<pre id="files-view" class="files-view"></pre>
+					</div>
+				</div>
+
+				<!-- 预览 pane（原 M5 面板整体迁入） -->
+				<div id="dock-pane-preview" class="dock-pane" hidden>
+					<div class="pv-bar">
+						<button id="pv-back" class="icon-btn" title="后退">←</button>
+						<button id="pv-fwd" class="icon-btn" title="前进">→</button>
+						<button id="pv-refresh" class="icon-btn" title="刷新">↻</button>
+						<input id="pv-url" class="pv-url mono" spellcheck="false" placeholder="网址或工作区文件名（如 demo.html），回车打开" />
+						<select id="pv-size" title="预览尺寸">
+							<option value="fill">填满</option>
+							<option value="768px">平板 768</option>
+							<option value="390px">手机 390</option>
+						</select>
+						<button id="pv-open" class="icon-btn" title="在系统浏览器打开">↗</button>
+					</div>
+					<div id="pv-chips" class="pv-chips" hidden></div>
+					<webview id="pv-webview" src="about:blank"></webview>
+				</div>
+			</div>
+		</div>
+
+	<!-- M5：右键菜单 / 迷你弹窗 -->
+	<div id="ctx-menu" hidden></div>
+	<!-- P35.1：记忆管理（发空 # 打开） -->
+	<div id="memory-mask" hidden>
+		<div id="memory-modal">
+			<div class="modal-head"><span><i data-lucide="brain"></i> 工作区记忆（AGENTS.md）</span><div class="spacer"></div><button id="memory-close" class="icon-btn"><i data-lucide="x"></i></button></div>
+			<div class="dim small" style="margin: 6px 0 10px;"># 开头的一句话会固化到这里，后续所有会话自动生效</div>
+			<div id="memory-list"></div>
+			<div class="dim small" id="memory-empty" hidden>暂无记忆，发送 “# 记住：xxx” 添加第一条</div>
+		</div>
+	</div>
+	<div id="allow-mask" hidden>
+		<div id="allow-modal">
+			<div class="mini-title-x"><i data-lucide="settings"></i> 命令允许清单</div>
+			<div class="dim" style="font-size:12px;line-height:1.6;margin-bottom:10px">只读/自动编辑档位下，命中清单（前缀匹配）且非危险的命令免确认直接执行；危险命令（rm -rf 等）任何档位都会拦截确认。</div>
+			<div id="allow-list"></div>
+			<div style="display:flex;gap:8px;margin:10px 0 14px">
+				<input id="allow-input" class="input" style="flex:1" placeholder="加命令前缀，如 npm test 或 git status" />
+				<button id="allow-add" class="btn ghost">添加</button>
+			</div>
+			<div class="mini-btns">
+				<button id="allow-cancel" class="btn ghost">取消</button>
+				<button id="allow-save" class="btn primary">保存</button>
+			</div>
+		</div>
+	</div>
+	<div id="mini-mask" hidden>
+		<div id="mini-modal">
+			<div id="mini-title">重命名会话</div>
+			<input id="mini-input" class="input" maxlength="120" />
+			<input id="mini-input2" class="input" maxlength="120" hidden />
+			<div id="mini-text" class="dim"></div>
+			<div class="mini-btns">
+				<button id="mini-cancel" class="btn ghost">取消</button>
+				<button id="mini-ok" class="btn primary">确定</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- 设置模态框：模型与供应商 -->
+	<div id="settings-mask" class="modal-mask hidden">
+		<div id="settings" class="modal">
+			<div class="modal-head">
+				<span>模型与供应商</span>
+				<div class="spacer"></div>
+				<button id="btn-settings-close" class="icon-btn"><i data-lucide="x"></i></button>
+			</div>
+			<div class="tabs">
+				<button class="tab active" data-tab="keys">API 密钥</button>
+				<button class="tab" data-tab="providers">自定义供应商</button>
+				<button class="tab" data-tab="local">本地模型</button>
+				<button class="tab" data-tab="skills">技能</button>
+				<button class="tab" data-tab="computer">电脑控制</button>
+			</div>
+
+			<div id="tab-keys" class="tab-pane">
+				<p class="dim small">为内置/自定义供应商保存 API 密钥（写入 <code>~/.pi/agent/auth.json</code>，权限 0600）。支持 <code>$ENV</code> 引用环境变量。</p>
+				<div id="key-list" class="kv-list"></div>
+				<div class="form-row">
+					<input id="key-provider" class="input" placeholder="provider id，如 openai / anthropic / zhipu" />
+					<input id="key-value" class="input" placeholder="API Key" type="password" />
+					<button id="btn-save-key" class="btn primary">保存密钥</button>
+				</div>
+				<div id="key-msg" class="msg-tip"></div>
+			</div>
+
+			<div id="tab-providers" class="tab-pane hidden">
+				<div class="kv-list" id="provider-list"></div>
+				<hr class="sep" />
+				<div class="form-grid">
+					<label>供应商 ID<input id="fp-id" class="input" placeholder="如 my-proxy" /></label>
+					<label>显示名<input id="fp-name" class="input" placeholder="可选" /></label>
+					<label class="span2">Base URL<input id="fp-baseurl" class="input" placeholder="https://api.example.com/v1" /></label>
+					<label>API 协议
+						<select id="fp-api" class="input">
+							<option value="openai-completions">openai-completions（最通用）</option>
+							<option value="openai-responses">openai-responses</option>
+							<option value="anthropic-messages">anthropic-messages</option>
+							<option value="google-generative-ai">google-generative-ai</option>
+						</select>
+					</label>
+					<label>API Key<input id="fp-key" class="input" type="password" placeholder="留空=保留原值" /></label>
+					<label class="span2">模型列表（每行一个，格式 <code>id</code> 或 <code>id | 显示名</code>）
+						<textarea id="fp-models" class="input" rows="4" placeholder="glm-5.3-flash | GLM 5.3 Flash"></textarea>
+					</label>
+					<label class="span2 checkbox-row">
+						<input type="checkbox" id="fp-devrole" /> 兼容模式：不发 developer 角色（vLLM/SGLang/Ollama 常需要）
+						<input type="checkbox" id="fp-effort" /> 兼容模式：不发 reasoning_effort
+					</label>
+				</div>
+				<div class="form-row">
+					<button id="btn-test-endpoint" class="btn ghost">测连通</button>
+					<button id="btn-save-provider" class="btn primary">保存供应商</button>
+					<button id="btn-del-provider" class="btn danger">删除</button>
+					<span id="fp-msg" class="msg-tip"></span>
+				</div>
+			</div>
+
+			<div id="tab-local" class="tab-pane hidden">
+				<p class="dim small">本地推理服务一键接入：选预设 → 自动填充表单 → 「测连通」拉取已装模型 → 保存。模型对所有新会话可用。</p>
+				<div id="preset-grid" class="preset-grid"></div>
+				<div id="preset-msg" class="msg-tip"></div>
+			</div>
+
+			<div id="tab-skills" class="tab-pane hidden">
+				<div class="skill-head">
+					<b>技能</b>
+					<span id="skill-count" class="dim small"></span>
+					<div class="spacer"></div>
+					<input id="skill-search" class="input" placeholder="搜索技能…" />
+					<button id="btn-skill-refresh" class="icon-btn" title="重新扫描">↻</button>
+					<button id="btn-skill-new" class="btn ghost">＋ 新建</button>
+				</div>
+				<div id="skill-new-form" class="form-row hidden">
+					<input id="skill-new-name" class="input" placeholder="名称：小写字母/数字/连字符，如 weekly-report" />
+					<input id="skill-new-desc" class="input" placeholder="描述：Agent 何时该用它（写入 SKILL.md）" />
+					<button id="btn-skill-create" class="btn primary">创建</button>
+					<span id="skill-new-msg" class="msg-tip"></span>
+				</div>
+				<div id="skill-install-form" class="form-row">
+					<input id="skill-install-url" class="input" placeholder="从 GitHub 安装：https://github.com/user/repo（可带 /tree/branch/subdir）" />
+					<button id="btn-skill-install" class="btn primary"><i data-lucide="download"></i> 安装</button>
+					<span id="skill-install-msg" class="msg-tip"></span>
+				</div>
+				<div id="office-card" class="hidden">
+					<p class="small"><b><i data-lucide="package"></i> 内置办公技能</b> <span class="dim small">Word / PDF / PPT / Excel —— 随软件自带，缺失的启动时自动部署；删除后不复活，修复可覆盖重装</span></p>
+					<div id="office-skills" class="form-grid"></div>
+					<div class="form-row">
+						<button id="btn-office-reinstall" class="btn ghost"><i data-lucide="wrench"></i> 修复（覆盖重装全部）</button>
+						<span id="office-msg" class="msg-tip"></span>
+					</div>
+				</div>
+
+				<div id="mcp-card">
+					<p class="small"><b><i data-lucide="plug"></i> MCP 服务器</b> <span class="dim small">配置文件 ~/.pi/agent/mcp.json（对齐 Claude Desktop / Codex 的 mcpServers 格式）；重连后新会话生效</span></p>
+					<div id="mcp-list" class="dim small">加载中…</div>
+					<div class="form-row">
+						<button id="btn-mcp-reconnect" class="btn ghost">↻ 重连全部</button>
+						<div id="mcp-msg" class="msg-tip"></div>
+					</div>
+				</div>
+
+				<div id="audit-card">
+					<p class="small"><b><i data-lucide="shield"></i> 安全审计</b> <span class="dim small">所有非只读工具调用落审计日志（~/.pi/agent/audit/，按日 JSONL：模式 / 决策 / 命令摘要）；危险命令在全自动档也强制确认，后台任务直接拒绝</span></p>
+					<div class="form-row">
+						<button id="btn-audit-open" class="btn ghost"><i data-lucide="folder-open"></i> 打开审计日志文件夹</button>
+					</div>
+				</div>
+
+				<div id="web-card">
+					<p class="small"><b><i data-lucide="globe"></i> 联网检索</b> <span class="dim small">内置 webfetch（抓网页转文本）与 websearch（联网搜索）两个只读工具，全档位可用；已拦截内网/环回地址。搜索默认走 DuckDuckGo，配 Tavily key（<a href="https://tavily.com" style="color:var(--accent)">tavily.com</a> 每月免费 1000 次）更稳更准</span></p>
+					<div class="form-row">
+						<input id="tavily-key" type="password" placeholder="Tavily API key（tvly-…，可选）" style="flex:1" />
+						<button id="btn-web-save" class="btn primary">保存</button>
+					</div>
+					<div id="web-msg" class="msg-tip" style="margin-top:6px"></div>
+				</div>
+
+				<div id="ctx-card">
+					<p class="small"><b><i data-lucide="scroll-text"></i> 上下文管理</b> <span class="dim small">接近窗口上限时自动把历史压缩成摘要（默认开）；工具栏 🗜 可随时手动压缩</span></p>
+					<div class="form-row">
+						<label class="small" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+							<input id="auto-compact-toggle" type="checkbox" style="accent-color:var(--accent)" />
+							自动压缩上下文
+						</label>
+					</div>
+				</div>
+
+				<div id="hooks-card">
+					<p class="small"><b><i data-lucide="anchor"></i> Hooks（工具调用钩子）</b> <span class="dim small">在 ~/.pi/agent/hooks.json 配置数组，每次工具调用前/后执行你的本地命令，可用于自动 lint、记录日志等；命令失败默认仅记日志，blockOnError: true 可拦截工具调用（模板变量 {{input.path}}、{{input.command}}）；注意：钩子命令以你的身份在本机执行，请只放自己写的命令</span></p>
+					<div class="form-row">
+						<button id="btn-hooks-sample" class="btn ghost"><i data-lucide="file-plus"></i> 创建示例</button>
+						<button id="btn-hooks-open" class="btn ghost"><i data-lucide="folder-open"></i> 打开配置</button>
+						<span id="hooks-msg" class="dim small"></span>
+					</div>
+				</div>
+
+				<div id="update-card">
+					<p class="small"><b><i data-lucide="arrow-up-circle"></i> 关于与更新</b> <span class="dim small" id="update-line">当前版本 —</span></p>
+					<p class="small dim" id="update-hint">更新源：~/.pi/agent/updater.json（github owner/repo 或 generic url）</p>
+					<div class="form-row">
+						<button id="btn-update-check" class="btn ghost">⟳ 检查更新</button>
+						<button id="btn-update-download" class="btn ghost" hidden><i data-lucide="download"></i> 下载新版</button>
+						<button id="btn-update-install" class="btn primary" hidden><i data-lucide="refresh-cw"></i> 重启并安装</button>
+						<button id="btn-update-config" class="btn ghost"><i data-lucide="settings"></i> 配置更新源</button>
+					</div>
+					<div id="update-progress" class="dim small" hidden style="height:4px;background:var(--border,rgba(128,128,128,.3));border-radius:2px;overflow:hidden"><div id="update-progress-fill" style="height:100%;width:0%;background:var(--accent,#4a9eff);transition:width .3s"></div></div>
+					<p class="small" id="update-msg"></p>
+				</div>
+				<p class="dim small">技能 = SKILL.md 能力包（Agent Skills 标准）。启用后写入系统提示词，<b>新会话生效</b>。外部来源（其他工具共享）只读展示。</p>
+				<div id="skill-list"></div>
+			</div>
+
+			<div id="tab-computer" class="tab-pane hidden">
+				<div class="cu-card">
+					<div class="cu-head">
+						<span class="cu-ic"><i data-lucide="monitor"></i></span>
+						<div>
+							<b>电脑控制</b>
+							<p class="dim small">让 Agent 看到并操作你的电脑。纯本地执行，常驻进程驱动，无需额外安装。开启后<b>新会话生效</b>。</p>
+						</div>
+						<label class="switch"><input type="checkbox" id="cu-toggle" /><span class="slider"></span></label>
+					</div>
+					<div id="cu-status" class="dim small"></div>
+					<div class="cu-tools">
+						<span title="截全屏或指定区域，回传给模型看"><i data-lucide="camera"></i> screenshot</span>
+						<span title="左/右/中键、双击"><i data-lucide="mouse-pointer"></i> click</span>
+						<span title="按住左键平滑拖拽"><i data-lucide="hand"></i> drag</span>
+						<span title="向焦点窗口输入任意文字（含中文）"><i data-lucide="keyboard"></i> type</span>
+						<span title="组合键：ctrl+c / alt+F4 / win…"><i data-lucide="zap"></i> key</span>
+						<span title="滚轮上下"><i data-lucide="rotate-cw"></i> scroll</span>
+						<span title="读写系统剪贴板"><i data-lucide="clipboard"></i> clipboard</span>
+						<span title="列出窗口 / 置前指定窗口（带聚焦验证）"><i data-lucide="app-window"></i> windows/focus</span>
+						<span title="等待程序加载"><i data-lucide="clock"></i> wait</span>
+					</div>
+					<p class="dim small">提示：Agent 打字/点击前会先聚焦目标窗口（带 verified 校验）。若它操作不到，让它先「列出窗口并聚焦记事本」。</p>
+				</div>
+			</div>
+
+			<div class="modal-foot dim small">
+				配置即契约：本页只写 Pi 标准文件（auth.json / models.json），与 pi CLI 双向兼容。保存后点击「重载模型目录」生效。
+				<div class="spacer"></div>
+				<button id="btn-check-updates" class="btn ghost">检查内核更新</button>
+				<span id="update-info" class="small dim"></span>
+				<button id="btn-reload-models" class="btn ghost">↻ 重载模型目录</button>
+			</div>
+		</div>
+	</div>
+
+	<template id="welcome-tpl">
+		<div id="welcome">
+			<div class="w-logo">◆</div>
+			<h1>今天想做点什么？</h1>
+			<p class="sub"><b>OpenPi</b> 本地优先的编码 Agent · 任意模型 · 本地引擎离线可用</p>
+			<div class="w-tasks">
+				<button class="w-task" data-q="解读这个项目的目录结构与代码组织，给出架构总览。"><span class="ic"><i data-lucide="compass"></i></span><b>探索并理解代码</b><span class="hint">架构总览 / 技术债定位 / 安全体检</span></button>
+				<button class="w-task" data-q="帮我在这个项目里实现一个新功能，需求如下："><span class="ic"><i data-lucide="hammer"></i></span><b>构建新功能、应用或工具</b><span class="hint">描述需求，Agent 直接改代码</span></button>
+			</div>
+		</div>
+	</template>
+	<script src="vendor/marked.min.js"></script>
+	<script src="vendor/purify.min.js"></script>
+	<script src="vendor/highlight.min.js"></script>
+	<link rel="stylesheet" href="vendor/katex.min.css" />
+	<script src="vendor/katex.min.js"></script>
+	<script src="vendor/auto-render.min.js"></script>
+	<script src="vendor/echarts.min.js"></script>
+	<script src="vendor/lucide.min.js"></script>
+	<script src="app.js"></script>
+</body>
+</html>
