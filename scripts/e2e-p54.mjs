@@ -79,7 +79,7 @@ console.log("[前置] workspace git 就绪");
 
 /* ---- hooks 示例模板断言：P54 验证模板已写入 hooks:sample 逻辑（源码级断言） ---- */
 const mainSrc = fs.readFileSync(path.join(ROOT, "src", "main", "main.mjs"), "utf8");
-ok("⓪ hooks 示例模板含 node --check 验证项", mainSrc.includes("node --check"));
+ok("⓪ hooks 示例模板含验证门槛项（ESM-aware checker）", mainSrc.includes("verify-check.cjs") && mainSrc.includes("blockOnError"));
 
 /* ---- 沙箱 agentDir ---- */
 const agentDir = path.join(os.tmpdir(), "p54-agent");

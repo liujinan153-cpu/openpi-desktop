@@ -29,6 +29,7 @@ import { browserTools, BROWSER_WRITE } from "./browser-tools.mjs"; // P52 浏览
 import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, verificationSystemPrompt, setGitWorkspace } from "./git-checkpoint.mjs"; // P53 git 检查点 + P54 验证闭环
 import { memoryTools, memorySystemPrompt, setMemoryWorkspace } from "./memory-tools.mjs"; // P55 项目记忆
 import { computerTools } from "./computer-tools.mjs"; // P56 OS 级 computer-use
+import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58 轻量代码诊断 + 验证门槛引导
 
 /** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
 function buildSubagentTool(host) {
@@ -53,14 +54,17 @@ function buildSubagentTool(host) {
 /** 审批档位（跨窗口独立、跨会话保持）；plan = 计划模式（P35）；allow = 命令允许清单（P39：命中且非危险的命令免确认） */
 const APPROVAL = { mode: "auto-edit", allow: [] };
 
-/** P51：用户 Hooks —— ~/.pi/agent/hooks.json（工具调用前/后执行用户命令） */
-function loadHooks() {
-	try {
-		const arr = JSON.parse(fs.readFileSync(path.join(getAgentDir(), "hooks.json"), "utf8"));
-		return Array.isArray(arr) ? arr.filter((h) => h && typeof h.command === "string" && ["before", "after"].includes(h.phase ?? "before")) : [];
-	} catch {
-		return []; // 无配置文件属正常
-	}
+/** P51：用户 Hooks —— 全局 ~/.pi/agent/hooks.json + 项目级 <工作区>/.openpi/hooks.json（P58：每次事件重读，写入即热生效） */
+function loadHooks(ws) {
+	const read = (p) => {
+		try {
+			const arr = JSON.parse(fs.readFileSync(p, "utf8"));
+			return Array.isArray(arr) ? arr.filter((h) => h && typeof h.command === "string" && ["before", "after"].includes(h.phase ?? "before")) : [];
+		} catch {
+			return []; // 无配置文件属正常
+		}
+	};
+	return [...read(path.join(getAgentDir(), "hooks.json")), ...(ws ? read(path.join(ws, ".openpi", "hooks.json")) : [])];
 }
 function fillTemplate(cmd, input) {
 	return cmd.replace(/\{\{\s*input\.([\w.]+)\s*\}\}/g, (_, k) => {
@@ -79,29 +83,26 @@ function runHookCommand(h, input) {
 }
 function hooksExtension(hostRef) {
 	return (pi) => {
-		const hooks = loadHooks();
-		if (!hooks.length) return;
-		const beforeHooks = hooks.filter((h) => (h.phase ?? "before") === "before");
-		const afterHooks = hooks.filter((h) => h.phase === "after");
+		// P58：每次事件重读 hooks（全局 + 项目级），写入即热生效；不提前 return（等 hooks 出现）
 		const match = (h, tool) => h.on === "*" || h.on === tool || (Array.isArray(h.on) && h.on.includes(tool));
-		if (beforeHooks.length) {
-			pi.on("tool_call", async (event) => {
-				for (const h of beforeHooks.filter((h) => match(h, event.toolName))) {
-					const r = await runHookCommand(h, event.input);
-					if (!r.ok) {
-						console.error(`[hooks] before ${event.toolName} 失败: ${r.stderr.slice(0, 200)}`);
-						if (h.blockOnError) return { block: true, reason: `Hook 命令失败：${r.stderr.slice(0, 400)}` };
-					}
+		const ws = () => (hostRef && typeof hostRef.workspace === "string" ? hostRef.workspace : null);
+		pi.on("tool_call", async (event) => {
+			const beforeHooks = loadHooks(ws()).filter((h) => (h.phase ?? "before") === "before");
+			for (const h of beforeHooks.filter((h) => match(h, event.toolName))) {
+				const r = await runHookCommand(h, event.input);
+				if (!r.ok) {
+					console.error(`[hooks] before ${event.toolName} 失败: ${r.stderr.slice(0, 200)}`);
+					if (h.blockOnError) return { block: true, reason: `Hook 命令失败：${r.stderr.slice(0, 400)}` };
 				}
-				return undefined;
-			});
-		}
-		if (afterHooks.length) {
+			}
+			return undefined;
+		});
+		pi.on("tool_result", async (event) => {
 			// P57 验证硬闭环：after hook 失败且 blockOnError 时，把工具结果改写为错误——
 			// 模型下一轮必然看到失败原因并修复（不再是仅记日志的软约束）
-			pi.on("tool_result", async (event) => {
-				let patch;
-				for (const h of afterHooks.filter((h) => match(h, event.toolName))) {
+			let patch;
+			const afterHooks = loadHooks(ws()).filter((h) => h.phase === "after");
+			for (const h of afterHooks.filter((h) => match(h, event.toolName))) {
 					const r = await runHookCommand(h, event.input);
 					if (!r.ok) {
 						console.error(`[hooks] after ${event.toolName} 失败: ${r.stderr.slice(0, 200)}`);
@@ -117,8 +118,7 @@ function hooksExtension(hostRef) {
 					}
 				}
 				return patch;
-			});
-		}
+		});
 	};
 }
 
@@ -283,6 +283,7 @@ export class AgentHost {
 		const wsResolved = workspace === null ? null : (workspace ?? path.join(os.homedir(), "openpi-workspace"));
 		setGitWorkspace(wsResolved); // P53：注入检查点工作目录（ctx.cwd 不可靠，是进程 cwd）
 		setMemoryWorkspace(wsResolved); // P55：注入记忆目录
+		setCodeIntelWorkspace(wsResolved, getAgentDir()); // P58：注入代码诊断工作目录 + agentDir（checker 落盘处）
 		const { session, modelFallbackMessage } = await createAgentSession({
 			cwd: workspace || undefined,
 			model,
@@ -290,7 +291,7 @@ export class AgentHost {
 			modelRuntime: this.modelRuntime,
 			sessionManager,
 			resourceLoader,
-			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆 + P56 电脑操作
+			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, ...codeIntelTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆 + P56 电脑操作 + P58 代码诊断
 		});
 
 		// 扩展 UI 桥接（M2）：confirm/select/input → 渲染层模态
@@ -695,6 +696,7 @@ export class AgentHost {
 			const model = this.session.model;
 			onUpdate?.({ type: "text", text: `子任务「${params.task ?? params.prompt.slice(0, 40)}」运行中…` });
 			const resourceLoader = await this.#buildLoader(this.workspace, []);
+			setCodeIntelWorkspace(this.workspace, getAgentDir()); // 子代理也带 diag/symbols（需 ws 解析相对路径）
 			const { session } = await createAgentSession({
 				cwd: this.workspace || undefined,
 				agentDir: getAgentDir(), // 与主会话同一配置源（沙箱 env 或真目录），否则 SDK 回退 ~/.pi/agent 导致 baseUrl/auth 脱节（401）
@@ -703,7 +705,7 @@ export class AgentHost {
 				sessionManager: SessionManager.inMemory(this.workspace || process.cwd()), // 零文件残留
 				resourceLoader,
 				tools: ["read", "grep", "find", "ls"], // 只读白名单：子代理不能写/执行，不绕过审批
-				customTools: [...webTools, ...gitTools, memoryTools[0]], // P47 联网 + P53 检查点 + P55 记忆只读；子代理不给浏览器工具（受控 Chromium 单实例）也不给 memory_write（记忆由主代理统一维护）
+				customTools: [...webTools, ...gitTools, ...codeIntelTools.filter((t) => t.name !== "verify_init"), memoryTools[0]], // P47 联网 + P53 检查点 + P58 诊断；子代理不给浏览器/verify_init（工作区引导属主代理职责）也不给 memory_write（记忆由主代理统一维护）
 			});
 			sub = session;
 			const onAbort = () => session.abort().catch(() => {});
@@ -939,7 +941,7 @@ function checkpointExtension(host) {
  * 通过 ctx.ui.confirm（由 AgentHost.#uiContext 桥接到桌面模态）。
  */
 /** 审批模式 holder：readonly 只读 / auto-edit 自动编辑（默认）/ full-auto 全自动 */
-const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read", "computer_list_windows", "computer_screenshot"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）；P53：git_status/git_diff；P55：memory_read；P56：看屏/列窗口只读，click/type/key/activate 归写类审批
+const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read", "computer_list_windows", "computer_screenshot", "code_diag", "code_symbols", "verify_init"]); // P52/P53/P55/P56 只读直通；P58：code_diag/code_symbols 只读诊断 + verify_init 只读检测（写入 .openpi/hooks.json 由 AI 走 write 工具另走审批）
 const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）

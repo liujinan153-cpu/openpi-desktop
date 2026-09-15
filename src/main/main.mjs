@@ -446,8 +446,10 @@ app.whenReady().then(async () => {
 	ipcMain.handle('hooks:sample', (e) => {
 		const p = path.join(getAgentDir(), 'hooks.json');
 		if (!fs.existsSync(p)) {
+			const checker = path.join(getAgentDir(), "verify-check.cjs");
+			fs.writeFileSync(checker, "const fs=require(\"fs\"),path=require(\"path\"),cp=require(\"child_process\");\nconst p=process.argv[2];\nif(!p||!fs.existsSync(p)){process.stderr.write(\"file not found: \"+p);process.exit(1);}\nconst src=fs.readFileSync(p,\"utf8\");\nconst pj=(()=>{try{return JSON.parse(fs.readFileSync(path.join(path.dirname(p),\"package.json\"),\"utf8\"))||{}}catch{return{}}})();\nconst esm=/\\.mjs$/.test(p)||(/\\.js$/.test(p)&&pj.type===\"module\")||/\\.mts$/.test(p);\nconst r=cp.spawnSync(process.execPath,esm?[\"--input-type=module\",\"--check\"]:[\"--check\"],{input:src});\nif(r.status===0)process.exit(0);\nprocess.stderr.write(String(r.stderr||\"syntax error\"));\nprocess.exit(1);\n");
 			fs.writeFileSync(p, JSON.stringify([
-				{ _note: 'P57 验证硬门槛：write/edit 写 JS 后自动语法检查，失败会作为错误返回给 AI（强制修复，不可忽略）；也可换成项目自己的 lint/test 命令', on: ['write', 'edit'], phase: 'after', command: 'node --check "{{input.path}}"', timeoutMs: 10000, blockOnError: true },
+				{ _note: 'P58 验证硬门槛：write/edit 后自动语法检查（支持 .mjs/type:module），失败作为错误返回给 AI（强制修复，不可忽略）；也可换成项目自己的 lint/test 命令', on: ['write', 'edit'], phase: 'after', command: `node "${checker.split(path.sep).join("/")}" "{{input.path}}"`, timeoutMs: 20000, blockOnError: true },
 				{ _note: '示例：write/edit 工具调用后自动记录到文件（按需修改后重启应用生效）', on: ['write', 'edit'], phase: 'after', command: 'node -e "require(\'fs\').appendFileSync(process.env.USERPROFILE + \'/Desktop/hook-log.txt\', JSON.stringify(process.argv[1]) + String.fromCharCode(10))" "{{input.path}}"', timeoutMs: 10000 },
 				{ _note: '示例：bash 调用前拦截演示——命令失败即拦截（默认 blockOnError 为假，仅记日志）', on: 'bash', phase: 'before', command: 'exit 0', blockOnError: false },
 			], null, 2));
