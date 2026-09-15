@@ -50,6 +50,7 @@ const SUITES = [
 	{ file: "e2e-p53.mjs", label: "git 检查点", ver: "0.43.0" },
 	{ file: "e2e-p54.mjs", label: "验证闭环", ver: "0.44.0" },
 	{ file: "e2e-p55.mjs", label: "项目记忆", ver: "0.44.0" },
+	{ file: "e2e-p56.mjs", label: "电脑操作", ver: "0.45.0" },
 	{ file: "e2e-p27.mjs", label: "checkpoint 回滚+@补全", ver: "0.23.0" },
 	{ file: "e2e-office-skills.mjs", label: "内置办公技能", ver: "0.21.0" },
 	{

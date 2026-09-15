@@ -28,6 +28,7 @@ import { webTools, setWebSettings } from "./web-tools.mjs"; // P47 联网检索�
 import { browserTools, BROWSER_WRITE } from "./browser-tools.mjs"; // P52 浏览器控制
 import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, verificationSystemPrompt, setGitWorkspace } from "./git-checkpoint.mjs"; // P53 git 检查点 + P54 验证闭环
 import { memoryTools, memorySystemPrompt, setMemoryWorkspace } from "./memory-tools.mjs"; // P55 项目记忆
+import { computerTools } from "./computer-tools.mjs"; // P56 OS 级 computer-use
 
 /** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
 function buildSubagentTool(host) {
@@ -274,7 +275,7 @@ export class AgentHost {
 			modelRuntime: this.modelRuntime,
 			sessionManager,
 			resourceLoader,
-			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆
+			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆 + P56 电脑操作
 		});
 
 		// 扩展 UI 桥接（M2）：confirm/select/input → 渲染层模态
@@ -923,7 +924,7 @@ function checkpointExtension(host) {
  * 通过 ctx.ui.confirm（由 AgentHost.#uiContext 桥接到桌面模态）。
  */
 /** 审批模式 holder：readonly 只读 / auto-edit 自动编辑（默认）/ full-auto 全自动 */
-const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）；P53：git_status/git_diff 只读直通；P55：memory_read 只读直通
+const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read", "computer_list_windows", "computer_screenshot"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）；P53：git_status/git_diff；P55：memory_read；P56：看屏/列窗口只读，click/type/key/activate 归写类审批
 const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）

@@ -28,12 +28,12 @@
 - [x] UI 不加面板，Agent 自主维护
 - [x] 验收：e2e-p55 6/6（A 写走审批 → B 新会话注入 memo=1）
 
-## P56 OS 级 computer-use（大，~2–3 天）
+## P56 OS 级 computer-use（✅ 0.45.0）
 **目标**：启动应用 → 操作 UI → 截图 → 读日志。
-- [ ] screenshot（全屏/窗口）、click、type、key、list_windows（PowerShell + UIA，复用 pi-driver 思路）
-- [ ] 写类操作走审批（同 P52 模式）
-- [ ] 子代理不带（同 P52 决策）；审计日志全量落盘
-- [ ] 验收：自动打开记事本 → 输入文字 → 截图断言 → 关闭
+- [x] screenshot、click、type（剪贴板+^v，支持中文）、key、list_windows、activate（PowerShell + user32 P/Invoke，零 npm 依赖）
+- [x] 写类操作走审批（click/type/key/activate 需确认；list_windows/screenshot 只读直通）
+- [x] 子代理不带（同 P52 决策）；审计日志全量落盘 ~/.pi/agent/computer-audit.log
+- [x] 验收：e2e-p56 6/6（独立 electron 靶子窗口：激活→输入→CDP 直读 input=P56-OK→截图落盘→审计日志）
 
 ## 不做（本轮）
 - LSP/IDE 深度分析（成本高，读文件+grep 已够中小仓库）
