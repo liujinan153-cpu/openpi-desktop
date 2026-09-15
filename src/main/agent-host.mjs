@@ -30,6 +30,7 @@ import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, verificationS
 import { memoryTools, memorySystemPrompt, setMemoryWorkspace } from "./memory-tools.mjs"; // P55 项目记忆
 import { computerTools } from "./computer-tools.mjs"; // P56 OS 级 computer-use
 import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58 轻量代码诊断 + 验证门槛引导
+import { imageTools } from "./image-tools.mjs"; // P61 CogView 生图
 
 /** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
 function buildSubagentTool(host) {
@@ -296,7 +297,7 @@ export class AgentHost {
 			modelRuntime: this.modelRuntime,
 			sessionManager,
 			resourceLoader,
-			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, ...codeIntelTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆 + P56 电脑操作 + P58 代码诊断
+			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, ...codeIntelTools, ...imageTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆 + P56 电脑操作 + P58 代码诊断 + P61 生图（MCP 桥经 resourceLoader 扩展注入，P28）
 		});
 
 		// 扩展 UI 桥接（M2）：confirm/select/input → 渲染层模态

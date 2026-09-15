@@ -935,12 +935,14 @@ function handleEvent(e) {
 
 /* ================= 发送逻辑 ================= */
 async function send() {
-	const text = expandSkillRef(input.value.trim());
-	if (!text && state.images.length === 0) return;
+	const text0 = expandSkillRef(input.value.trim());
+	if (!text0 && state.images.length === 0) return;
 	input.value = "";
 	autoGrow();
 	const images = state.images.splice(0); // 取出并清空
 	renderImageBar();
+	// P61 坐坑 #89：智谱拒收 [text("")+image] 组合（HTTP 400/1210，实测复现）——纯贴图时补非空占位
+	const text = text0 || (images.length ? "（见附图）" : "");
 	await sendText(text, images);
 }
 
