@@ -1,7 +1,7 @@
 # OpenPi Desktop 工程记忆（pi 自动加载）
 
 ## 当前进度快照（2026-09-15，会话上下文接力锚点）
-- 版本 **0.45.0**（P56 OS 级 computer-use：computer_list_windows/screenshot 只读 + click/type/key/activate 写类走审批，PowerShell+user32 零依赖，审计日志全量落盘；e2e-all 28 套）：CDP 受控 Chromium 独立 profile + ref 标注（browser-tools.mjs 10 工具），写类操作 readonly/auto-edit 弹确认；webfetch/websearch 归只读（auto-edit 不弹审）；子代理不带浏览器工具；审批链路经 e2e 打点全链路验证通畅（#102 假雷：卡顿在 e2e 测试方法而非产品）；e2e-all 现 **28 套**｜0.42.x：P52 浏览器控制｜0.41.0：P49 自动压缩开关 + P50 子代理 + P51 Hooks｜0.40.0：P47 联网检索 + P48 用量面板｜0.39.0：P46 UI 设计系统
+- 版本 **0.46.0**（P57 验证硬门槛：hooks after+blockOnError 把失败改写为工具错误强制修复；新装 5 官方技能共 12 个；e2e-all 29 套）：CDP 受控 Chromium 独立 profile + ref 标注（browser-tools.mjs 10 工具），写类操作 readonly/auto-edit 弹确认；webfetch/websearch 归只读（auto-edit 不弹审）；子代理不带浏览器工具；审批链路经 e2e 打点全链路验证通畅（#102 假雷：卡顿在 e2e 测试方法而非产品）；e2e-all 现 **29 套**｜0.42.x：P52 浏览器控制｜0.41.0：P49 自动压缩开关 + P50 子代理 + P51 Hooks｜0.40.0：P47 联网检索 + P48 用量面板｜0.39.0：P46 UI 设计系统
 - **贴图 400 排查结论**（详见 PROGRESS.md P38.5 段）：1210=[text(""),image] 组合被智谱拒收（婚纱照 7.3MB 直发正常，非尺寸问题）；1214=空 data 图片（pi Desktop 上游自身附件链路问题，OpenPi 链路干净）；Connection error=到 open.bigmodel.cn 网络间歇不通，与 400 无关
 - **发布流程**：`npm run dist`（全量 e2e-all 24 套门槛，大版本用）| `node scripts/dist.mjs --fast`（小改动快发，跳过回归；受影响的套件用 `e2e-all --only <名>` 单跑）→ `node scripts/publish.mjs`；发布源 E:/pi2/openpi-releases @9355（VBS 自启）；e2e 与发布源端口隔离；**用户指示：改动小就不跑全量回归（耗时且费 token），全量留给大版本**
 - **待办**：① 0.34.0 发布后用户真机验证「只贴图不写字」② 公网发布（github provider 或公网 HTTP 二选一）③ 观察文件卡误伤率 ④ 存量 0.32.0 用户升级需手动跑一次新 Setup（#86 跨坑）

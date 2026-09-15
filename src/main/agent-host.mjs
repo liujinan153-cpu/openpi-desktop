@@ -97,11 +97,26 @@ function hooksExtension(hostRef) {
 			});
 		}
 		if (afterHooks.length) {
+			// P57 验证硬闭环：after hook 失败且 blockOnError 时，把工具结果改写为错误——
+			// 模型下一轮必然看到失败原因并修复（不再是仅记日志的软约束）
 			pi.on("tool_result", async (event) => {
+				let patch;
 				for (const h of afterHooks.filter((h) => match(h, event.toolName))) {
-					await runHookCommand(h, event.input);
+					const r = await runHookCommand(h, event.input);
+					if (!r.ok) {
+						console.error(`[hooks] after ${event.toolName} 失败: ${r.stderr.slice(0, 200)}`);
+						if (h.blockOnError) {
+							patch = {
+								isError: true,
+								content: [
+									...(Array.isArray(event.content) ? event.content : []),
+									{ type: "text", text: `\n[验证门槛] hook「${h.name ?? "校验"}」失败：\n${(r.stderr || r.stdout).slice(0, 800)}\n请修复问题后重试，不要忽略此错误。` },
+								],
+							};
+						}
+					}
 				}
-				return undefined;
+				return patch;
 			});
 		}
 	};
