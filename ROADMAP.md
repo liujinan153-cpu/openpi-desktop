@@ -13,6 +13,7 @@
 | 3 | 子代理（agent-as-tool） | ✅ 已发布 0.41.0 | subagent 工具：inMemory 独立上下文 + 只读白名单 + 并发锁 + 8min 超时；e2e-p49 7/7 |
 | 5 | Hooks（工具调用前后钩子） | ✅ 已发布 0.41.0 | ~/.pi/agent/hooks.json（before 可 block）；设置页示例创建；e2e-p49 覆盖 after 副作用 |
 | 6 | 内置浏览器控制（P52，追加） | ✅ 已发布 0.42.0 | CDP 受控 Chromium + ref 标注；10 工具；写类操作审批确认；e2e-p52 7/7 |
+| 7 | git 检查点（P53，追加） | ✅ 已发布 0.43.0 | 写前自动快照（独立 ref 不污染历史）+ git_status/git_diff/git_rollback；改动可自证可撤销；e2e-p53 8/8 |
 
 ## 后续池（用户提过/可选，未排期）
 

@@ -26,6 +26,7 @@ import { Type } from "typebox";
 import { createSandbox, bindSession, cleanupExpired, sandboxRoot } from "./workspace-store.mjs";
 import { webTools, setWebSettings } from "./web-tools.mjs"; // P47 联网检索（webfetch/websearch）
 import { browserTools, BROWSER_WRITE } from "./browser-tools.mjs"; // P52 浏览器控制
+import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, setGitWorkspace } from "./git-checkpoint.mjs"; // P53 git 检查点
 
 /** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
 function buildSubagentTool(host) {
@@ -262,6 +263,7 @@ export class AgentHost {
 			console.error(`[mcp] ensure failed: ${err.message ?? err}`);
 		}
 		const resourceLoader = await this.#buildLoader(workspace, mcpTools);
+		setGitWorkspace(workspace === null ? null : (workspace ?? path.join(os.homedir(), "openpi-workspace"))); // P53：注入检查点工作目录（ctx.cwd 不可靠，是进程 cwd）
 		const { session, modelFallbackMessage } = await createAgentSession({
 			cwd: workspace || undefined,
 			model,
@@ -269,7 +271,7 @@ export class AgentHost {
 			modelRuntime: this.modelRuntime,
 			sessionManager,
 			resourceLoader,
-			customTools: [...webTools, ...browserTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P50 子代理
+			customTools: [...webTools, ...browserTools, ...gitTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理
 		});
 
 		// 扩展 UI 桥接（M2）：confirm/select/input → 渲染层模态
@@ -682,7 +684,7 @@ export class AgentHost {
 				sessionManager: SessionManager.inMemory(this.workspace || process.cwd()), // 零文件残留
 				resourceLoader,
 				tools: ["read", "grep", "find", "ls"], // 只读白名单：子代理不能写/执行，不绕过审批
-				customTools: [...webTools], // P47 联网；子代理不给浏览器工具（受控 Chromium 单实例，并发冲突且无必要）
+				customTools: [...webTools, ...gitTools], // P47 联网 + P53 检查点；子代理不给浏览器工具（受控 Chromium 单实例，并发冲突且无必要）
 			});
 			sub = session;
 			const onAbort = () => session.abort().catch(() => {});
@@ -918,7 +920,7 @@ function checkpointExtension(host) {
  * 通过 ctx.ui.confirm（由 AgentHost.#uiContext 桥接到桌面模态）。
  */
 /** 审批模式 holder：readonly 只读 / auto-edit 自动编辑（默认）/ full-auto 全自动 */
-const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）
+const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff"]); // P52：浏览器/联网只读工具全档位直通（browser_tabs 含 switch/close 故归写类；webfetch/websearch 是只读抓取，不弹审）；P53：git_status/git_diff 只读直通
 const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）
@@ -933,6 +935,12 @@ function approvalExtension(hostRef) {
 			const cmd = String(event.input?.command ?? event.input?.script ?? "");
 			const summary = isExec ? cmd : (event.input?.path ?? event.input?.file_path ?? JSON.stringify(event.input ?? {}).slice(0, 120));
 			const risky = isExec && RISKY.some((re) => re.test(cmd));
+			// P53：写类操作放行前自动打 git 检查点（快照=改动前状态，供回滚/diff；内部 30s 节流+静默失败）
+			const checkpoint = () => {
+				if (WRITE_TOOLS.has(tool) || isExec || isBrowserWrite) {
+					try { autoCheckpointIfNeeded(null, `${tool}: ${String(summary).slice(0, 80)}`); } catch { /* 不阻断 */ }
+				}
+			};
 			if (!ctx.hasUI) {
 				// 后台任务/无 UI 环境：无法弹窗确认，危险命令直接拒绝（P30）
 				if (risky) {
@@ -953,12 +961,14 @@ function approvalExtension(hostRef) {
 					return { block: true, reason: "用户在 OpenPi Desktop 中拒绝执行该危险命令。" };
 				}
 				auditLog(hostRef, tool, mode, "auto-allow", summary);
+				checkpoint();
 				return undefined;
 			}
 			if (READ_ONLY_TOOLS.has(tool)) return undefined;
 			// P39 允许清单：readonly/auto-edit 档位下，命中清单且非危险的命令免确认（full-auto 本就直通，plan 硬拒）
 			if (isExec && !risky && APPROVAL.allow.some((p) => cmd.trimStart().startsWith(p))) {
 				auditLog(hostRef, tool, mode, "allowlist-allow", cmd);
+				checkpoint();
 				return undefined;
 			}
 			// 计划模式（P35）：只读探索 + 清单可写，其余一律硬拒绝（不弹窗），引导 AI 输出计划等待批准
@@ -977,6 +987,7 @@ function approvalExtension(hostRef) {
 				// P52：浏览器写类（点击/输入/提交）在 readonly/auto-edit 都弹确认，full-auto 直通+审计
 				if (mode === "full-auto") {
 					auditLog(hostRef, tool, mode, "auto-allow", summary);
+					checkpoint();
 					return undefined;
 				}
 				need = true;
@@ -995,6 +1006,7 @@ function approvalExtension(hostRef) {
 					label = `修改文件（只读模式）：${summary}`;
 				} else {
 					auditLog(hostRef, tool, mode, "auto-allow", summary);
+					checkpoint();
 					return undefined;
 				}
 			} else {
@@ -1003,13 +1015,17 @@ function approvalExtension(hostRef) {
 			}
 			if (!need) {
 				auditLog(hostRef, tool, mode, "auto-allow", summary);
+				checkpoint();
 				return undefined;
 			}
 			const ok = await ctx.ui.confirm("⚠ 操作审批", `${label}
 
 允许执行吗？（当前档位：${mode === "readonly" ? "只读" : "自动编辑"}）`);
 			auditLog(hostRef, tool, mode, ok ? "confirmed" : "blocked", summary);
-			if (ok) return undefined; // 放行
+			if (ok) {
+				checkpoint(); // P53：用户确认放行 → 先快照后执行
+				return undefined;
+			}
 			return { block: true, reason: "用户在 OpenPi Desktop 中拒绝执行该操作。" };
 		});
 	};
@@ -1023,7 +1039,11 @@ function approvalExtension(hostRef) {
 function planPromptExtension(hostRef) {
 	return (pi) => {
 		pi.on("before_agent_start", async (event) => {
-			if (hostRef.mode !== "plan") return undefined;
+			if (hostRef.mode !== "plan") {
+				// P53：非 plan 档位下，git 仓库工作区注入检查点提示（改完代码用 git_diff 自证）
+				const cp = checkpointSystemPrompt(event.cwd || hostRef.workspace || process.cwd());
+				return cp ? { systemPrompt: event.systemPrompt + cp } : undefined;
+			}
 			return {
 				systemPrompt:
 					event.systemPrompt +

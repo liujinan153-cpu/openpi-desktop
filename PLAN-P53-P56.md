@@ -3,16 +3,16 @@
 > 来源：八项能力审计。结论：#1 Loop / #3 上下文 / #6 子代理 / #7 Skill 已强；
 > #2 电脑操作中「OS 级 computer-use」与「IDE 分析」缺；#4 记忆弱；#5 Checkpoint 无；#8 自我验证最弱。
 
-## P53 git 基建 + Checkpoint（~1 天）⬅ 当前
+## P53 git 基建 + Checkpoint（✅ 0.43.0 完成）
 **目标**：让「改好了」变成「改好了，这是 diff，可回滚」。
 
-- [ ] P53a OpenPi 项目自身 `git init` + `.gitignore`（node_modules/dist/e2e 产物）+ 基线提交
-- [ ] P53b 产品能力：工作区 checkpoint
+- [x] P53a OpenPi 项目自身 `git init` + `.gitignore`（node_modules/dist/e2e 产物）+ 基线提交
+- [x] P53b 产品能力：工作区 checkpoint
   - 会话启动检测工作区是否 git 仓库；不是则提示可初始化
   - Agent 修改文件前自动 `git add -A && git commit`（checkpoint 快照，`--no-verify` 跳钩子）
   - 新增只读工具 `git_diff`（checkpoint 对照）+ `git_rollback`（写类，走审批）
   - UI：工具栏显示「已建 N 个检查点」，点击看最近 diff
-- [ ] 验收：e2e 新套件（改文件 → diff 有内容 → rollback 还原 → 内容一致）
+- [x] 验收：e2e 新套件（改文件 → diff 有内容 → rollback 还原 → 内容一致）
 - 坑位预案：#90 taskkill //PID；git 在系统 PATH（#93 尾部追加规则，不抢）
 
 ## P54 验证闭环（~半天）

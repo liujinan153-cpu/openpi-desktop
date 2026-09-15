@@ -50,6 +50,8 @@ const llm = http.createServer((req, res) => {
 		res.writeHead(200, { "Content-Type": "text/event-stream" });
 		let body = {};
 		try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* 忽略 */ }
+		const last0 = body.messages?.[body.messages.length - 1];
+		if (process.env.P52_DUMP) console.error(`[p52dump] 请求: last.role=${last0?.role} text=${String(typeof last0?.content === "string" ? last0.content : JSON.stringify(last0?.content ?? "")).slice(0, 60)}`);
 		if (process.env.P52_DUMP) {
 			const tools = (body.messages ?? []).filter((m) => m.role === "assistant").flatMap((m) => (m.tool_calls ?? []).map((tc) => tc.function?.name + "(" + String(tc.function?.arguments).slice(0, 60) + ")"));
 			const lastTool = (body.messages ?? []).filter((m) => m.role === "tool").at(-1);

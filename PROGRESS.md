@@ -13,6 +13,7 @@
 - **坐坑 #101**：`CRI({target: id})` 必须带 `port`，否则内部静默回落 9222 → ECONNREFUSED；CRI 域对象无 `.off`，解绑事件用 `client.removeAllListeners("Page.loadEventFired")`
 - **坐坑 #102（e2e 三重假雷，差点冤枉产品）**：调试中「审批弹窗被拒/不弹」反复摇摆，深挖后确认产品审批链路本身通畅（打点实测 ui_request→弹窗→uiRespond→resolveUi 命中=true→confirm=true 秒级闭环；proxy 通用 RPC 本就转发 resolveUi）。三重坑全在 e2e 侧：① 渲染层 sendText() await prompt RPC 不 settle，而 CDP Runtime.evaluate 即使不写 awaitPromise 也会等返回值 promise settle → e2e 被卡死 5 分钟 → 弹窗早已出现却被 worker 侧 5min 超时拆掉 → 迟到的点击命中=false；② lastText 未等新一轮流式就开始查旧气泡，agent 快时抓到上一轮 END52 消息；③ stderr/stdout 双流重定向行序不可靠，打点必须带时间戳。修复=e2e 侧 sendText 改同步 IIFE fire-and-forget + lastText 先等流式开始再等结束；顺带保留 worker stderr 转发作排障基建
 - **坐坑 #103**：断言媒介被渲染层 HTML 转义污染——快照里 `<input type=text>` 被气泡 innerHTML 解析吃掉，textContent 拿不到字面量；断言只锚定转义安全的文本/格式
+- **P53 git 检查点（0.43.0）**：git-checkpoint.mjs——commit-tree 构造独立提交链挂 refs/openpi/checkpoints（不动 HEAD 不污染历史）；approvalExtension 放行点前 autoCheckpointIfNeeded（30s 节流）；工具 git_status/git_diff（只读直通）+ git_rollback（走通用审批）；**cwd 必须经 setGitWorkspace 注入**（ctx.cwd 实测=进程 cwd，坐坑 #105：boot() 硬编码 startSession(null) 任务模式，e2e 需 ev 驱动 startSession(workspace)）；干净仓库也建基线快照（首写可撤销）；回归 p52 7/7（间歇失败=受控浏览器残留，杀进程+清 lock 后重跑即绿）
 - **坐坑 #104**：chrome-remote-interface 误放 devDependencies——打包不进 asar，源码/e2e 全绿但真机浏览器工具报 Cannot find package；0.42.1 修复（移入 dependencies，asar 验证 36 项打包）；真机 0.42.1 验证 browser_open 成功（Example Domain 标题+正文）
 - **e2e-p52**（PORT 9352，LLM 9492，SITE 9530，7 断言）：open 快照含标题+ref → type 审批弹窗+提交成功 → tabs 审批+列表 → webfetch 回归；approveBrowserWrite 轮询=独立短 evaluate 循环（渲染层响应性~1ms/次）；注册 e2e-all 现 **24 套**；打点移除后复跑全绿
 

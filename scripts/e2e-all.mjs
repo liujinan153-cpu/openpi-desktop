@@ -47,6 +47,7 @@ const SUITES = [
 	{ file: "e2e-p47.mjs", label: "联网检索+用量面板", ver: "0.40.0" },
 	{ file: "e2e-p49.mjs", label: "子代理+Hooks+自动压缩开关", ver: "0.41.0" },
 	{ file: "e2e-p52.mjs", label: "内置浏览器控制", ver: "0.42.0" },
+	{ file: "e2e-p53.mjs", label: "git 检查点", ver: "0.43.0" },
 	{ file: "e2e-p27.mjs", label: "checkpoint 回滚+@补全", ver: "0.23.0" },
 	{ file: "e2e-office-skills.mjs", label: "内置办公技能", ver: "0.21.0" },
 	{
