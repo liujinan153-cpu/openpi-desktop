@@ -1,7 +1,7 @@
 // E2E P56：OS 级 computer-use（记事本全链路）
-//   ① computer_list_windows（只读直通）找到 notepad
+//   ① computer_windows（只读直通）找到 notepad
 //   ② computer_activate（写类→审批）聚焦 → computer_type（写类→审批）输入 P56-OK
-//   ③ computer_list_windows 断言标题含 P56-OK → computer_screenshot（只读）PNG 落盘
+//   ③ computer_windows 断言标题含 P56-OK → computer_screenshot（只读）PNG 落盘
 //   ④ 审计日志有记录
 import CDP from "chrome-remote-interface";
 import fs from "node:fs";
@@ -43,11 +43,11 @@ const llm = http.createServer((req, res) => {
 		};
 		const winList = last?.role === "tool" ? textOf(last) : "";
 		if (last?.role === "user" && textOf(last).includes("P56-FLOW-A")) {
-			toolCall("c1", "computer_list_windows", {});
+			toolCall("c1", "computer_windows", {});
 		} else if (last?.role === "tool" && !globalThis.p56listed) {
 			if (process.env.P56_DUMP) console.error("[p56dump] winList:", winList.slice(0, 2000));
 			globalThis.p56listed = true;
-			const wm = winList.match(/"pid":(\d+)[^}]*"title":"P56-TARGET"/);
+			const wm = winList.match(/pid=(\d+)\s+electron\s+「P56-TARGET」/);
 			if (!wm) { finish(`FAIL1 找不到靶子窗口: ${winList.slice(0, 1200)} END56`); return; }
 			toolCall("c2", "computer_activate", { pid: Number(wm[1]) });
 		} else if (last?.role === "tool" && !globalThis.p56act) {
@@ -55,7 +55,7 @@ const llm = http.createServer((req, res) => {
 			toolCall("c3", "computer_type", { text: "P56-OK" });
 		} else if (last?.role === "tool" && !globalThis.p56typed) {
 			globalThis.p56typed = true;
-			toolCall("c4", "computer_list_windows", {});
+			toolCall("c4", "computer_windows", {});
 		} else if (last?.role === "tool" && !globalThis.p56vlist) {
 			globalThis.p56vlist = true;
 			globalThis.p56titleOk = winList.includes("P56-OK");
@@ -190,14 +190,14 @@ try {
 	await hc.close();
 } catch (e) { helperVal = "CDP-ERR:" + e.message.slice(0, 80); }
 ok("② 输入真落地（靶子输入框=P56-OK）", helperVal === "P56-OK", JSON.stringify(helperVal));
-const shotPath = (t1.match(/saved=([^\s]+\.png)/) || [])[1] || (t1.match(/([A-Za-z]:[^ ]*computer-[^ ]*\.png)/) || [])[1];
+const shotPath = (t1.match(/已截图：([^（\s]+)/) || [])[1];
 ok("③ screenshot PNG 落盘", !!shotPath && fs.existsSync(shotPath) && fs.statSync(shotPath).size > 10000, String(shotPath));
 
 /* ④ 审计日志 */
 await sleep(1000);
 const auditLog = path.join(os.homedir(), ".pi", "agent", "computer-audit.log");
 const auditTxt = fs.existsSync(auditLog) ? fs.readFileSync(auditLog, "utf8") : "";
-ok("④ 审计日志记录了电脑操作", auditTxt.includes("computer_list_windows") && auditTxt.includes("computer_type"), auditTxt.split("\n").length + " 行");
+ok("④ 审计日志记录了电脑操作", auditTxt.includes("daemon_wins") && auditTxt.includes("daemon_paste"), auditTxt.split("\n").length + " 行");
 
 try { helperProcRef.kill(); } catch { /* 已退出 */ }
 try { execFileSync("taskkill", ["/PID", String(helperProcRef.pid), "/T", "/F"], { stdio: "ignore" }); } catch { /* 已退出 */ }

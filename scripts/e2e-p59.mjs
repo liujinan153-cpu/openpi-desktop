@@ -43,18 +43,20 @@ const llm = http.createServer((req, res) => {
 		};
 		// 状态机：列窗口 → elements → 按名点击 → 输入 → finish
 		if (last?.role === "user" && textOf(last).includes("P59-FLOW-A")) {
-			toolCall("c1", "computer_list_windows", {});
+			toolCall("c1", "computer_windows", {});
 		} else if (last?.role === "tool" && !globalThis.p59win) {
 			globalThis.p59win = true;
-			const wm = textOf(last).match(/"pid":(\d+),"name":"electron","title":"P56-TARGET"/);
+			const wm = textOf(last).match(/pid=(\d+)\s+electron\s+「P56-TARGET」/);
 			if (!wm) { finish("FAIL0 找不到靶子窗口 END59"); return; }
 			globalThis.p59pid = Number(wm[1]);
-			toolCall("c2", "computer_elements", { pid: globalThis.p59pid, contains: "P59" });
+			toolCall("c2", "computer_elements", { pid: globalThis.p59pid });
 		} else if (last?.role === "tool" && !globalThis.p59els) {
 			globalThis.p59els = true;
 			globalThis.p59elsText = textOf(last);
-			if (process.env.P59_DUMP) console.error("[p59dump] elements:", textOf(last).slice(0, 300));
-			toolCall("c3", "computer_click", { pid: globalThis.p59pid, name: "P59 输入框" });
+			const em = globalThis.p59elsText.match(/Edit「P59 输入框」 @ \((\d+),(\d+)\)/);
+			if (!em) { finish("FAIL0 控件树未暴露输入框 END59"); return; }
+			globalThis.p59xy = [Number(em[1]), Number(em[2])];
+			toolCall("c3", "computer_click", { x: globalThis.p59xy[0], y: globalThis.p59xy[1] });
 		} else if (last?.role === "tool" && !globalThis.p59clicked) {
 			globalThis.p59clicked = true;
 			globalThis.p59clickText = textOf(last);
