@@ -1,6 +1,6 @@
-﻿# OpenPi P56: OS-level computer-use ops (called from computer-tools.mjs)
+﻿# OpenPi P56/P59: OS-level computer-use ops (called from computer-tools.mjs)
 # Usage: powershell -NoProfile -ExecutionPolicy Bypass -File computer-ops.ps1 <op> [args...]
-# Ops: list_windows | screenshot <out.png> | click <x> <y> [left|right|double] | type <text> | key <keys> | activate <pid>
+# Ops: list_windows | screenshot <out.png> | click <x> <y> [left|right|double] | type <text> | key <keys> | activate <pid> | elements <pid> [contains] | click_name <pid> <name> [mode]
 param(
 	[string]$op,
 	[string]$a1,
@@ -13,6 +13,8 @@ $ErrorActionPreference = "Stop"
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
 
 Add-Type @"
 using System;
@@ -106,6 +108,77 @@ switch ($op) {
 			Start-Sleep -Milliseconds 15
 		}
 		Write-Output ("OK selected " + $n + " chars")
+	}
+	"elements" {
+		# P59 CUA 强化：UIA 枚举窗口控件树（点控件代替猜坐标）
+		$targetPid = [int]$a1
+		$p = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
+		if (-not $p -or $p.MainWindowHandle -eq 0) { Fail "找不到目标窗口（pid=$targetPid）" }
+		$root = [System.Windows.Automation.AutomationElement]::RootElement
+		$cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $targetPid)
+		$win = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $cond)
+		if (-not $win) { Fail "UIA 未找到该 pid 的窗口" }
+		$all = $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+		# Chromium 系应用 a11y 树需触发后延迟就绪：全匿名时等待重试一次
+		$named = 0
+		foreach ($e0 in $all) { try { if ($e0.Current.Name) { $named++; break } } catch { } }
+		if ($named -eq 0) { Start-Sleep -Milliseconds 2500; $all = $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition) }
+		$items = @()
+		$i = 0
+		foreach ($el in $all) {
+			$i++
+			if ($i -gt 200) { break }
+			try {
+				$r = $el.Current.BoundingRectangle
+				if ($r.Width -le 0 -or $r.Height -le 0) { continue }
+				$nm = $el.Current.Name
+				if ($a2 -and $nm -and (-not $nm.ToLower().Contains($a2.ToLower()))) { continue }
+				$items += [PSCustomObject]@{ type = $el.Current.ControlType.ProgrammaticName -replace '^ControlType\.', ''; name = $nm; x = [int]($r.X + $r.Width/2); y = [int]($r.Y + $r.Height/2); w = [int]$r.Width; h = [int]$r.Height }
+			} catch { continue }
+		}
+		$json = @($items) | ConvertTo-Json -Compress -Depth 3
+		if (-not $items) { $json = "[]" }
+		Write-Output ("OK " + $json)
+	}
+	"click_name" {
+		# P59：按控件名点击（UIA 定位中心 + 真实鼠标事件）；名称可能含空格：a3/a4 非模式时并入名称
+		$targetPid = [int]$a1
+		if (-not $a2) { Fail "click_name 需要控件名" }
+		$name = $a2
+		$mode = "left"
+		if ($a3) {
+			if ($a3 -in @("left", "right", "double")) { $mode = $a3 }
+			else { $name = "$a2 $a3"; if ($a4 -in @("left", "right", "double")) { $mode = $a4 } }
+		} elseif ($a4 -in @("left", "right", "double")) { $mode = $a4 }
+		$root = [System.Windows.Automation.AutomationElement]::RootElement
+		$cond = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ProcessIdProperty, $targetPid)
+		$win = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $cond)
+		if (-not $win) { Fail "UIA 未找到该 pid 的窗口" }
+		$all = $win.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+		$hit = $null
+		foreach ($el in $all) {
+			try {
+				$nm = $el.Current.Name
+				if ($nm -and $nm.ToLower().Contains($name.ToLower())) {
+					$r = $el.Current.BoundingRectangle
+					if ($r.Width -gt 0 -and $r.Height -gt 0) { $hit = $r; break }
+				}
+			} catch { continue }
+		}
+		if (-not $hit) { Fail ("未找到名为「" + $name + "」的可见控件") }
+		$cx = [int]($hit.X + $hit.Width/2); $cy = [int]($hit.Y + $hit.Height/2)
+		[Native]::SetCursorPos($cx, $cy) | Out-Null
+		Start-Sleep -Milliseconds 80
+		if ($mode -eq "double") {
+			1..2 | ForEach-Object {
+				[Native]::mouse_event([Native]::LEFTDOWN, 0, 0, 0, 0); Start-Sleep -Milliseconds 40
+				[Native]::mouse_event([Native]::LEFTUP, 0, 0, 0, 0); Start-Sleep -Milliseconds 60
+			}
+		} else {
+			[Native]::mouse_event([Native]::LEFTDOWN, 0, 0, 0, 0); Start-Sleep -Milliseconds 40
+			[Native]::mouse_event([Native]::LEFTUP, 0, 0, 0, 0)
+		}
+		Write-Output ("OK clicked '$name' at $cx,$cy")
 	}
 	"activate" {
 		$p = Get-Process -Id ([int]$a1) -ErrorAction SilentlyContinue

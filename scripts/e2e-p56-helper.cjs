@@ -3,6 +3,7 @@
 const path = require("path");
 const { app, BrowserWindow } = require("electron");
 app.whenReady().then(() => {
+	app.setAccessibilitySupportEnabled(true); // UIA 控件树需要 a11y 开启
 	const w = new BrowserWindow({
 		width: 520,
 		height: 320,

@@ -2,6 +2,8 @@
  * P56 OS 级 computer-use：让 AI 能看屏幕、动鼠标键盘、操作本地应用。
  * - 底层：PowerShell + user32 P/Invoke（computer-ops.ps1），零新增 npm 依赖
  * - 工具：list_windows / screenshot（只读直通）+ click / type / key / activate（写类走通用审批）
+ *
+ * - P59 CUA 强化：computer_elements（UIA 控件树，只读）+ computer_click 按名点控件
  * - 安全：全部调用落审计日志（~/.pi/agent/computer-audit.log）；子代理不带本组工具
  */
 import { Type } from "typebox";
@@ -75,23 +77,50 @@ export const computerTools = [
 		},
 	},
 	{
-		name: "computer_click",
-		label: "点击屏幕",
-		description: "移动鼠标到屏幕坐标 (x, y) 并点击。button: left（默认）/ right / middle 无效时用 left；double=true 双击。坐标从截图（虚拟屏坐标系）读取。",
+		name: "computer_elements",
+		label: "读取控件树",
+		description: "用 Windows UI Automation 读取指定窗口的控件树（类型/名称/中心坐标），比截图猜坐标精准得多。操作 UI 前先用它定位控件，再配合 computer_click 按名点击。pid 从 computer_list_windows 获取；可用 contains 过滤控件名。",
+		promptSnippet: "- computer_elements: 读窗口控件树（UIA），按名定位控件",
 		parameters: Type.Object({
-			x: Type.Number({ description: "屏幕 X 坐标" }),
-			y: Type.Number({ description: "屏幕 Y 坐标" }),
-			button: Type.Optional(Type.String({ description: "left（默认）/ right / double" })),
+			pid: Type.Number({ description: "目标窗口 pid" }),
+			contains: Type.Optional(Type.String({ description: "只返回名称含此关键字的控件（不区分大小写）" })),
 		}),
 		async execute(_id, params = {}) {
-			const r = await runPs("click", [params.x, params.y, params.button ?? "left"]);
+			const args = [String(params.pid ?? "")];
+			if (params.contains) args.push(String(params.contains));
+			const r = await runPs("elements", args);
+			return r.ok ? OKR(`控件树：\n${r.data}\n（坐标为控件中心，可直接用于 computer_click；最小化窗口坐标为负，先 activate）`) : BADR(`elements 失败：${r.err}`);
+		},
+	},
+	{
+		name: "computer_click",
+		label: "点击屏幕",
+		description: "点击屏幕：优先用「按名点控件」（传 pid + name，UIA 定位控件中心，最准）；或直接传坐标 (x, y)。button: left（默认）/ right；double=true 双击。坐标从截图（虚拟屏坐标系）读取。",
+		promptSnippet: "- computer_click: 点控件（按名最准）或点坐标",
+		parameters: Type.Object({
+			pid: Type.Optional(Type.Number({ description: "按名点击时：目标窗口 pid" })),
+			name: Type.Optional(Type.String({ description: "按名点击时：控件名（不区分大小写，取第一个可见匹配）" })),
+			x: Type.Optional(Type.Number({ description: "坐标点击时：屏幕 X" })),
+			y: Type.Optional(Type.Number({ description: "坐标点击时：屏幕 Y" })),
+			button: Type.Optional(Type.String({ description: "left（默认）/ right" })),
+			double: Type.Optional(Type.Boolean({ description: "双击" })),
+		}),
+		async execute(_id, params = {}) {
+			if (params.pid && params.name) {
+				const mode = params.double ? "double" : (params.button === "right" ? "right" : "left");
+				const r = await runPs("click_name", [params.pid, String(params.name), mode]);
+				return r.ok ? OKR(r.data) : BADR(`click_name 失败：${r.err}（可先用 computer_elements 查看控件名）`);
+			}
+			if (params.x == null || params.y == null) return BADR("click 需要 pid+name（按名）或 x+y（坐标）");
+			const mode = params.double ? "double" : (params.button === "right" ? "right" : "left");
+			const r = await runPs("click", [params.x, params.y, mode]);
 			return r.ok ? OKR(r.data) : BADR(`click 失败：${r.err}`);
 		},
 	},
 	{
 		name: "computer_type",
 		label: "输入文字",
-		description: "向当前焦点窗口输入任意文字（含中文，走剪贴板粘贴，会覆盖剪贴板原内容）。输入前必须先点击目标输入框获得焦点，输入后截图验证文字真的出现。",
+		description: "向当前焦点窗口输入任意文字（含中文，走剪贴板粘贴，会覆盖剪贴板原内容）。注意：操作审批通过后前台会回到本应用，输入前先 computer_activate 目标窗口（或 computer_click 输入框）恢复焦点；输入后截图验证文字真的出现。",
 		parameters: Type.Object({
 			text: Type.String({ description: "要输入的文字" }),
 		}),
@@ -103,7 +132,7 @@ export const computerTools = [
 	{
 		name: "computer_key",
 		label: "发送按键",
-		description: "向当前焦点窗口发送按键：enter / esc / tab / backspace / delete / home / end / pgup / pgdn / up / down / left / right / space / win，或单个字符。",
+		description: "向当前焦点窗口发送按键：enter / esc / tab / backspace / delete / home / end / pgup / pgdn / up / down / left / right / space / win，或单个字符。审批后前台回到本应用，发键前先 computer_activate 目标窗口。",
 		parameters: Type.Object({
 			key: Type.String({ description: "按键名，如 enter、esc" }),
 		}),
