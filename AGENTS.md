@@ -1,7 +1,7 @@
 # OpenPi Desktop 工程记忆（pi 自动加载）
 
 ## 当前进度快照（2026-09-16，会话上下文接力锚点）
-- 版本 **0.56.0**（**P67 UI 第二波：minimap 对话轨道 + 设置全局搜索**，e2e-p67 8断言，e2e-all **38 套**）（0.55.0：P66 渐进流式+思考展开——修「流式不实时显示」报障，实测链路通畅根因长思考期折叠条正文空白，思考流式自动展开；e2e-p66 6断言）（0.54.0：P65 通知中心+Ctrl+K 命令面板）（0.53.x：P64 并行 worker 多角色+会话导入、结论回喂竞态修复；P63 lsp_diag+Goal；P62 repo map/ast_edit/run_tests）（坐坑 #119：e2e mock 必须分块慢发才测得出流式渲染；#118：mock 缺 [DONE]+end 则 SDK 挂流；#117：worker 结论回喂=延迟注入+三态）
+- 版本 **0.57.0**（**P68 UI 第三波：流式跟随智能化（上滚不抢滚动+回底按钮）+ 消息复制/引用操作条 + 图片 lightbox**，e2e-p68 8断言，e2e-all **39 套**）（0.56.0：P67 minimap 对话轨道+设置全局搜索）（0.55.0：P66 渐进流式+思考展开——修「流式不实时显示」报障，实测链路通畅根因长思考期折叠条正文空白，思考流式自动展开）（0.54.0：P65 通知中心+Ctrl+K 命令面板）（0.53.x：P64 并行 worker 多角色+会话导入、结论回喂竞态修复；P63 lsp_diag+Goal；P62 repo map/ast_edit/run_tests）（坐坑 #119：e2e mock 必须分块慢发且内容够长才测得出滚动/流式行为；#118：mock 缺 [DONE]+end 则 SDK 挂流；#117：worker 结论回喂=延迟注入+三态）
 - **贴图 400 排查结论**（详见 PROGRESS.md P38.5 段）：1210=[text(""),image] 组合被智谱拒收（婚纱照 7.3MB 直发正常，非尺寸问题）；1214=空 data 图片（pi Desktop 上游自身附件链路问题，OpenPi 链路干净）；Connection error=到 open.bigmodel.cn 网络间歇不通，与 400 无关
 - **发布流程**：`npm run dist`（全量 e2e-all 24 套门槛，大版本用）| `node scripts/dist.mjs --fast`（小改动快发，跳过回归；受影响的套件用 `e2e-all --only <名>` 单跑）→ `node scripts/publish.mjs`；发布源 E:/pi2/openpi-releases @9355（VBS 自启）；e2e 与发布源端口隔离；**用户指示：改动小就不跑全量回归（耗时且费 token），全量留给大版本**
 - **待办**：① 0.34.0 发布后用户真机验证「只贴图不写字」② 公网发布（github provider 或公网 HTTP 二选一）③ 观察文件卡误伤率 ④ 存量 0.32.0 用户升级需手动跑一次新 Setup（#86 跨坑）

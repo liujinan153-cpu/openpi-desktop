@@ -880,3 +880,12 @@ P1 最后一项：pi SDK 无 MCP 客户端，用 extensions 机制自建桥，Ag
 - e2e-p67 8/8（长回复撑滚动条 → minimap segs≥4、vp 可见、点击跳转 scrollTop 0→659、搜 mcp 跳 skills+mcp-card 高亮、搜密钥 Enter 跳 keys、无命中空态）
 - **e2e 教训**：断言「点击跳转」前必须先把 scrollTop 归零（appendText 后 scrollBottom 已把视图拉到底，点 90% 处反而是向上跳）；弹层多结果时断言要选中目标 title 的条目而非盲点第一条
 - 全角弯引号 typo（"…”）导致 syntax error——node --check 抓住，写完必查
+
+## P68（0.57.0）UI 第三波：流式跟随 + 消息操作条 + lightbox（2026-09-16）
+
+- **流式跟随智能化**：`state.stick`（默认 true）——`scrollBottom(force)` 仅 stick 时拉底；chat scroll 事件维护 stick（离底 <80px 视为在底部）；用户上滚 → 流式不再强拉（P66 报障「切会话才看到结果」的另一半体感：边输出边想回看历史会被抢滚动）；`addUserMsg` force 回底；回底按钮 `#scroll-down`（离底 >300px 浮出，流式中 .live 脉冲点）点击 force 恢复
+- **消息操作条**：`mountMsgActs(c, text)` 在 finalizeAssistant 挂 `.msg-acts`（hover 显现）——复制全文（clipboard.writeText，按钮反馈已复制）+ 引用（input 预填 `> 前160字\n\n` 并聚焦）
+- **lightbox**：chat 事件委托点击 img → `#lightbox` 全屏遮罩放大（DOMPurify 默认放行 data:image），Esc/点击关闭
+- e2e-p68 8/8（慢流 8 段×300ms：上滚后 top 保持 0、gap=1050 不被强拉、按钮 live；点回底 gap=0；复制读回剪贴板校验；引用 focus 断言；lightbox 开关）
+- **e2e 教训**：① 测滚动行为时 mock 内容必须真正溢出（首版只溢出 22px < stick 阈值 80 → 永远判在底部，① 假败）② 断言复制要校验剪贴板实际内容而非关键词③ 创建 DOM 按钮后 data-act 别忘设（querySelector 查不到 → e2e null 崩）
+- 工具卡美化评估后跳过：P66 已折叠+秒数跳动，边际价值低

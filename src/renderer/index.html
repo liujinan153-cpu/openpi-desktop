@@ -45,6 +45,8 @@
 			<div id="chat-wrap">
 				<main id="chat"></main>
 				<div id="minimap" hidden><div id="minimap-segs"></div><div id="minimap-vp" hidden></div></div>
+				<!-- P68：回到底部浮动按钮（滚离底部 >300px 出现；流式中带脉冲点） -->
+				<button id="scroll-down" hidden title="回到底部">↓</button>
 			</div>
 
 			<footer id="composer">
@@ -512,6 +514,9 @@
 		<div class="np-head"><b>通知</b><div class="spacer"></div><button id="notif-readall" class="np-act">全部已读</button><button id="notif-clear" class="np-act">清空</button></div>
 		<div id="notif-list"></div>
 	</div>
+
+	<!-- P68：图片 lightbox（点击聊天中任意图片全屏放大，Esc/点击关闭） -->
+	<div id="lightbox" hidden><img id="lightbox-img" alt="" /></div>
 
 	<!-- P65：全局命令面板（Ctrl+K：命令/会话/设置一站式） -->
 	<div id="cmdk" hidden>

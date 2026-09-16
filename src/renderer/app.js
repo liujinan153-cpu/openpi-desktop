@@ -240,7 +240,12 @@ function mountFileCards(rootEl) {
 }
 
 /* ================= 基础渲染 ================= */
-function scrollBottom() {
+/* P68：流式跟随智能化——用户上滚离开底部时，流式输出不再强拉底部（stick=false），
+   点回底按钮/发新消息/切会话时强制恢复跟随 */
+state.stick = true;
+function scrollBottom(force = false) {
+	if (force) state.stick = true;
+	if (!state.stick) return;
 	chat.scrollTop = chat.scrollHeight;
 }
 
@@ -275,7 +280,7 @@ function addUserMsg(text, images = [], display = null) {
 	}
 	el.querySelector(".body").textContent = display ?? text;
 	chat.appendChild(el);
-	scrollBottom();
+	scrollBottom(true); // 用户主动发言 → 强制回底跟随
 }
 
 function addSysLine(text, warn = false) {
@@ -392,6 +397,7 @@ function finalizeAssistant(msg) {
 	const hasThinking = !!c.thinkingEl && c.bodyEl.contains(c.thinkingEl);
 	if (!text && hasWork) c.root.classList.add("toolonly");
 	else if (!text && !hasThinking && !hasWork) c.root.remove(); // 完全空轮次直接移除
+	mountMsgActs(c, text); // P68：hover 复制/引用操作条
 	if (msg?.stopReason === "error") mountRetryChip(c); // P39：失败一轮给「重试」按钮
 	const u = msg?.usage;
 	if (u) {
@@ -3597,3 +3603,51 @@ ssInput.addEventListener("keydown", (e) => {
 	items[ssIdx]?.scrollIntoView({ block: "nearest" });
 });
 ssInput.addEventListener("blur", () => setTimeout(() => { ssPop.hidden = true; }, 200));
+
+/* ================= P68：流式跟随 + 回底按钮 + lightbox + 消息操作条 ================= */
+const sdBtn = $("scroll-down");
+chat.addEventListener("scroll", () => {
+	const gap = chat.scrollHeight - chat.scrollTop - chat.clientHeight;
+	state.stick = gap < 80; // 拉到接近底部 = 恢复跟随
+	sdBtn.hidden = gap < 300;
+	sdBtn.classList.toggle("live", !!state.cur && gap >= 300);
+}, { passive: true });
+sdBtn.addEventListener("click", () => scrollBottom(true));
+
+/* 图片 lightbox：点击聊天中任意 img（排除头像）全屏放大，Esc/点击关闭 */
+chat.addEventListener("click", (e) => {
+	const img = e.target.closest?.("img");
+	if (!img) return;
+	$("lightbox-img").src = img.src;
+	$("lightbox").hidden = false;
+});
+$("lightbox").addEventListener("click", () => { $("lightbox").hidden = true; });
+window.addEventListener("keydown", (e) => {
+	if (e.key === "Escape" && !$("lightbox").hidden) $("lightbox").hidden = true;
+});
+
+/* 消息操作条：finalize 后 hover 浮出「复制/引用」（复制全文原文，引用预填输入框） */
+function mountMsgActs(c, text) {
+	if (!text || !c.root) return;
+	const main = c.root.querySelector(".msg-main");
+	if (!main || main.querySelector(".msg-acts")) return;
+	const acts = document.createElement("div");
+	acts.className = "msg-acts";
+	const bCopy = document.createElement("button");
+	bCopy.className = "ma-btn"; bCopy.dataset.act = "copy"; bCopy.textContent = "❐ 复制"; bCopy.title = "复制全文";
+	bCopy.addEventListener("click", async (e) => {
+		const btn = e.currentTarget;
+		try { await navigator.clipboard.writeText(text); btn.textContent = "已复制"; }
+		catch { btn.textContent = "复制失败"; }
+		setTimeout(() => { btn.textContent = "❐ 复制"; }, 1500);
+	});
+	const bQuote = document.createElement("button");
+	bQuote.className = "ma-btn"; bQuote.dataset.act = "quote"; bQuote.textContent = "❝ 引用"; bQuote.title = "引用到输入框";
+	bQuote.addEventListener("click", () => {
+		const head = text.length > 160 ? text.slice(0, 160) + "…" : text;
+		input.value = `> ${head.replace(/\n+/g, " ")}\n\n`;
+		input.focus();
+	});
+	acts.append(bCopy, bQuote);
+	main.appendChild(acts);
+}
