@@ -2,6 +2,12 @@
 
 用户视角的里程碑记录；实施细节与踩坑见 `PROGRESS.md`。
 
+## 0.58.0（2026-09-16）
+
+- **后台任务取消通道**（P69）：任务面板 running 任务行新增「✕ 取消」按钮 → worker session abort → 状态变「已取消」（主动取消不计为错误）；主进程新增 task:cancel IPC，taskSessions Map 持引用不进序列化
+- **Codex / OpenCode 会话导入**（P69，此前仅 Claude Code）：Codex rollout jsonl（response_item，input_text/output_text 全兼容，滤 developer/environment_context 等系统注入）+ OpenCode storage（session/message/part 多布局防御式读取）；探测支持三来源，导入进 pi 会话目录可搜索回看；本机真实 Codex 数据单测验证
+- 新增 unit-p69（6断言）+ e2e-p69（8断言），e2e-all 39→40 套
+
 ## 0.57.0（2026-09-16）
 
 - **流式跟随智能化**（P68，修 P66 用户痛点另一半）：流式期间用户上滚即停止强拉底部（可边输出边回看历史），接近底部/发新消息/点回底按钮自动恢复跟随；滚动离底 >300px 浮出回底按钮，流式中带脉冲提示点

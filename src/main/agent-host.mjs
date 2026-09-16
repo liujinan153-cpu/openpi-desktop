@@ -226,6 +226,7 @@ export class AgentHost {
 		this.modelRuntime = null;
 		/** @type {Map<string, object>} P30 后台任务表 */
 		this.tasks = new Map();
+		this.taskSessions = new Map(); // P69：taskId → 后台 session（取消通道用，不进 taskList 序列化）
 		this.taskSeq = 0;
 		/** @type {import("@earendil-works/pi-coding-agent").AgentSession|null} */
 		this.session = null;
@@ -576,6 +577,7 @@ export class AgentHost {
 		};
 		bindSession(workspace, { sessionId: session.sessionId ?? null, sessionFile: task.sessionFile }); // P41
 		this.tasks.set(task.id, task);
+		this.taskSessions.set(task.id, session); // P69：存引用供取消
 		const snapshot = () => ({ ...task, texts: undefined, lastText: task.texts.at(-1) ?? "" });
 		const unsubscribe = session.subscribe((e) => {
 			try {
@@ -590,11 +592,12 @@ export class AgentHost {
 				}
 			} catch { /* 事件处理失败不影响任务 */ }
 		});
-		const finish = (status) => {
+		const finish = (fallbackStatus) => {
 			if (task.status !== "running") return;
-			task.status = status;
+			task.status = task.cancelled ? "cancelled" : fallbackStatus; // P69：取消优先
 			task.endedAt = Date.now();
 			unsubscribe?.();
+			this.taskSessions.delete(task.id);
 			try { session.dispose(); } catch { /* 尽力释放 */ }
 			this.#send({ type: "task_update", task: snapshot() });
 		};
@@ -603,7 +606,7 @@ export class AgentHost {
 		session.prompt(String(prompt)).then(
 			() => finish(task.error ? "error" : "done"),
 			(err) => {
-				task.error = String(err?.message ?? err).slice(0, 200);
+				if (!task.cancelled) task.error = String(err?.message ?? err).slice(0, 200); // P69：主动取消不算错误
 				finish("error");
 			},
 		);
@@ -613,6 +616,22 @@ export class AgentHost {
 
 	taskList() {
 		return [...this.tasks.values()].map((t) => ({ ...t, texts: undefined, lastText: t.texts.at(-1) ?? "" }));
+	}
+
+	/** P69：用户从任务面板取消后台任务 → abort worker session，prompt resolve 后 finish 标记 cancelled */
+	async taskCancel(id) {
+		const task = this.tasks.get(id);
+		const session = this.taskSessions.get(id);
+		if (!task || !session || task.status !== "running") return { ok: false, error: "任务不存在或已结束" };
+		task.cancelled = true;
+		try {
+			await session.abort();
+		} catch (err) {
+			// abort 异常则直接标终态（finish 幂等，不会重复发 update）
+			this.#send({ type: "task_update", task: { ...task, texts: undefined, lastText: task.texts.at(-1) ?? "" } });
+			return { ok: false, error: String(err?.message ?? err).slice(0, 120) };
+		}
+		return { ok: true };
 	}
 
 	snapshotFile(rel) {

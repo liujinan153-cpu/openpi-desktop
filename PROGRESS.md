@@ -889,3 +889,11 @@ P1 最后一项：pi SDK 无 MCP 客户端，用 extensions 机制自建桥，Ag
 - e2e-p68 8/8（慢流 8 段×300ms：上滚后 top 保持 0、gap=1050 不被强拉、按钮 live；点回底 gap=0；复制读回剪贴板校验；引用 focus 断言；lightbox 开关）
 - **e2e 教训**：① 测滚动行为时 mock 内容必须真正溢出（首版只溢出 22px < stick 阈值 80 → 永远判在底部，① 假败）② 断言复制要校验剪贴板实际内容而非关键词③ 创建 DOM 按钮后 data-act 别忘设（querySelector 查不到 → e2e null 崩）
 - 工具卡美化评估后跳过：P66 已折叠+秒数跳动，边际价值低
+
+## P69（0.58.0）功能短板：任务取消通道 + Codex/OpenCode 导入（2026-09-16）
+
+- **取消通道**：agent-host `taskSessions` Map（taskId→session，不进 taskList 序列化）；`taskCancel(id)` 置 task.cancelled + session.abort()；finish 内 status 优先取 cancelled（prompt resolve/reject 两路都正确收口，reject 路径不计 error 文案）；IPC task:cancel + preload taskCancel + 渲染层 running 行「✕ 取消」按钮
+- **导入扩展**：detectImportSources 加 codex（~/.codex/sessions 递归 jsonl）+ opencode（XDG/LOCALAPPDATA/~/.opencode 三候选）；parseCodexJsonl（response_item.message，input_text/output_text/text，滤 developer+CODEX_SYSTEM_RE 已知系统块前缀——environment_context 内有裸文本掐标签滤不掉）；OpenCode readOpencodeSessionMsgs 多布局防御式（info.json/part 目录三种排布）；writeImportedSession 通用化三来源共用幂等写入
+- unit-p69 6/6（含本机真实 Codex 样本）；e2e-p69 8/8（PI_HOME 隔离 fixture：探测三来源、codex/opencode 各导入 1 条落盘、面板取消全链路、会话目录出现 --imported）
+- **坑**：① sed 插入注释行漏收尾 `*/` → const 被吞进注释块 → ReferenceError（node --check 还查不出来——语法合法，运行时才炸，单测抓住）② sed 双写反斜杠 `\s`→`s` 转义坑再+1 ③ JSDoc 注释里写 `/**/*.jsonl` 的 `*/` 会提前闭合注释 ④ mock SSE res 必须挂 error 容忍（abort 后 EPIPE）
+- 上游 glm-5.3-flash 本轮再超 570s 超时一次（工作不丢，接续即可）

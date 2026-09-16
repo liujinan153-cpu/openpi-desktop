@@ -1356,7 +1356,7 @@ $("btn-new-side").addEventListener("click", newSession);
 /* P64⑧：外部会话导入 */
 $("btn-import")?.addEventListener("click", async () => {
 	const sources = await window.openpi.sessionsImportScan().catch(() => []);
-	if (!sources.length) { addSysLine("未检测到可导入的外部会话（支持：Claude Code ~/.claude/projects）", true); return; }
+	if (!sources.length) { addSysLine("未检测到可导入的外部会话（支持：Claude Code / Codex / OpenCode）", true); return; }
 	const names = sources.map((s) => `${s.kind}（${s.count} 个会话）`).join("、");
 	const ok = await miniConfirm("导入外部会话", `检测到：${names}。转换后出现在会话列表（只读回看，可搜索）。继续？`);
 	if (!ok) return;
@@ -1527,7 +1527,7 @@ async function refreshAgentsChip() {
 }
 
 /* ---- P30：后台并行任务面板 ---- */
-const TASK_STATUS_LABEL = { running: "运行中", done: "完成", error: "失败" };
+const TASK_STATUS_LABEL = { running: "运行中", done: "完成", error: "失败", cancelled: "已取消" };
 function renderTasksBadge() {
 	const el = $("tasks-cnt");
 	if (!el) return;
@@ -1567,6 +1567,20 @@ async function renderTasksPane() {
 				row.querySelector(".task-meta").appendChild(openBtn);
 			}
 			row.title = t.lastText || t.title;
+			if (t.status === "running") { // P69：取消通道（.abort worker session → 状态变 cancelled）
+				const cancelBtn = document.createElement("span");
+				cancelBtn.className = "task-cancel dim small";
+				cancelBtn.style.cssText = "cursor:pointer;text-decoration:underline;margin-left:8px;color:var(--red)";
+				cancelBtn.textContent = "✕ 取消";
+				cancelBtn.addEventListener("click", async (ev) => {
+					ev.stopPropagation();
+					cancelBtn.textContent = "取消中…";
+					const r = await window.openpi.taskCancel(t.id).catch((err) => ({ ok: false, error: err.message ?? String(err) }));
+					addSysLine(r?.ok ? `⏹ 后台任务已取消：${t.title}` : `任务取消失败：${r?.error ?? "未知"}`, !r?.ok);
+					renderTasksPane();
+				});
+				row.querySelector(".task-meta").appendChild(cancelBtn);
+			}
 			const detail = document.createElement("pre");
 			detail.className = "dim small hidden";
 			detail.style.cssText = "white-space:pre-wrap;word-break:break-word;padding:8px 12px;margin:0;border-bottom:1px solid rgba(128,128,128,.2)";

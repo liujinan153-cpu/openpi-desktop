@@ -62,6 +62,7 @@ const SUITES = [
 	{ file: "e2e-p66.mjs", label: "渐进流式+思考展开", ver: "0.55.0" },
 	{ file: "e2e-p67.mjs", label: "minimap+设置搜索", ver: "0.56.0" },
 	{ file: "e2e-p68.mjs", label: "流式跟随+消息操作条+lightbox", ver: "0.57.0" },
+	{ file: "e2e-p69.mjs", label: "任务取消+Codex/OpenCode导入", ver: "0.58.0" },
 	{ file: "e2e-p27.mjs", label: "checkpoint 回滚+@补全", ver: "0.23.0" },
 	{ file: "e2e-office-skills.mjs", label: "内置办公技能", ver: "0.21.0" },
 	{

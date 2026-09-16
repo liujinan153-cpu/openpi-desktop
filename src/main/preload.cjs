@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld("openpi", {
 	filesFlat: () => ipcRenderer.invoke("files:flat"),
 	mcpStatus: () => ipcRenderer.invoke("mcp:status"),
 	taskStart: (prompt) => ipcRenderer.invoke("task:start", prompt),
+	taskCancel: (id) => ipcRenderer.invoke("task:cancel", id), // P69
 	auditOpen: () => ipcRenderer.invoke("audit:open"),
 	updateSnapshot: () => ipcRenderer.invoke("update:snapshot"),
 	updateCheck: () => ipcRenderer.invoke("update:check"),

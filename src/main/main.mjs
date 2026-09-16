@@ -15,7 +15,7 @@ import { createAgentProxy } from "./agent-proxy.mjs"; // P43：AgentHost 实例�
 import { getAgentDir } from "@earendil-works/pi-coding-agent"; // P47 设置文件定位
 import { cleanupExpired, sandboxRoot } from "./workspace-store.mjs";
 import { SessionIndex } from "./sessions-index.mjs";
-import { detectImportSources, importAllClaude } from "./session-import.mjs"; // P64⑧ 外部会话导入
+import { detectImportSources, importAllClaude, importAllCodex, importAllOpenCode } from "./session-import.mjs"; // P64⑧/P69 外部会话导入
 import { ensureShellEnv } from "./shell-env.mjs";
 import { initUpdater, checkUpdate, downloadUpdate, installUpdate, openUpdaterConfig, getSnapshot, UPDATER_CFG, feedConfigured } from "./updater.mjs";
 import { getConfig, saveProvider, deleteProvider, saveKey, testEndpoint, LOCAL_PRESETS } from "./config-store.mjs";
@@ -488,9 +488,11 @@ app.whenReady().then(async () => {
 	// P64⑧：外部会话导入（Claude Code 起步）
 	ipcMain.handle("sessions:import-scan", () => detectImportSources());
 	ipcMain.handle("sessions:import-do", (_e, kind) => {
-		if (String(kind) !== "claude-code") throw new Error("暂不支持该来源");
 		// 索引不用手动同步：sessions:search 每次都 syncRoot，导入的会话下次搜索自动可见
-		return importAllClaude();
+		if (String(kind) === "claude-code") return importAllClaude();
+		if (String(kind) === "codex") return importAllCodex(); // P69
+		if (String(kind) === "opencode") return importAllOpenCode(); // P69
+		throw new Error("暂不支持该来源");
 	});
 	ipcMain.handle("shell:open-external", (_e, url) => {
 		const u = String(url ?? "");
@@ -690,6 +692,7 @@ app.whenReady().then(async () => {
 
 	/* ---- P30：后台并行任务 ---- */
 	ipcMain.handle("task:start", async (e, prompt) => hostOf(e).startBackground(String(prompt ?? "")));
+	ipcMain.handle("task:cancel", (e, id) => hostOf(e).taskCancel(String(id ?? ""))); // P69 取消通道
 	ipcMain.handle("task:list", (e) => hostOf(e).taskList());
 
 	/* ---- P33：自动更新 ---- */
