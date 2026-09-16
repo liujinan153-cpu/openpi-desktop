@@ -947,7 +947,7 @@ function checkpointExtension(host) {
  * 通过 ctx.ui.confirm（由 AgentHost.#uiContext 桥接到桌面模态）。
  */
 /** 审批模式 holder：readonly 只读 / auto-edit 自动编辑（默认）/ full-auto 全自动 */
-const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read", "computer_list_windows", "computer_screenshot", "computer_elements", "computer_windows", "computer_read", "computer_wait", "computer_apps", "code_diag", "code_symbols", "verify_init"]); // P52/P53/P55/P56 只读直通；P58：code_diag/code_symbols 只读诊断 + verify_init 只读检测（写入 .openpi/hooks.json 由 AI 走 write 工具另走审批）
+const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "plan_submit", "webfetch", "websearch", "browser_open", "browser_snapshot", "browser_screenshot", "browser_wait", "browser_scroll", "git_status", "git_diff", "memory_read", "computer_list_windows", "computer_screenshot", "computer_elements", "computer_windows", "computer_read", "computer_wait", "computer_apps", "code_diag", "code_symbols", "verify_init", "subagent"]); // P61 补：subagent 是只读派发（子代理仅只读工具，结论回主会话无副作用）——被通用审批误拦致 p49 假失败；其余 P52/P53/P55/P56 只读直通，P58：code_diag/code_symbols 只读诊断 + verify_init 只读检测
 const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）
