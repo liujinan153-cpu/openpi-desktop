@@ -2,7 +2,13 @@
 
 用户视角的里程碑记录；实施细节与踩坑见 `PROGRESS.md`。
 
-## 0.50.1（2026-09-15）
+## 0.51.0（2026-09-16）
+
+- **P62 编程三件套**（PLAN-P62-P64.md 第一批）：
+  - **repo map**：会话自动注入工作区地图（目录树+项目元信息，gitignore 感知、带缓存）——弱模型大仓库不迷路
+  - **ast_edit**：ast-grep 语法树批量替换（预览→apply 两段式，0/超30处拒绝），重命名/重构不错配引号缩进——#100 家族根治；二进制随包分发（resources/bin）
+  - **run_tests**：npm/pytest/go/cargo 自动探测，改码后行为级自证
+- 踩坑 #115：ast-grep 把路径参数当 glob，Windows 反斜杠被视为转义符→静默 0 匹配——传参一律转正斜杠；Applied N changes 走 stderr（execFileSync 捕不到，用 spawnSync）
 
 - **修复：子代理被审批误拦**（e2e-p49 假失败数版未觉——fast 发布通道跳过旧套件的盲区）——subagent 是只读派发，进直通名单；本轮全量 31/31 绿后出包
 

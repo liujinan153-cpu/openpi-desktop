@@ -2,8 +2,9 @@
 // 设计立场：不做全量 LSP（每语言一个 server 进程，成本高收益边际）——
 // 用 node --check / tsc --noEmit / py_compile 覆盖 90% 场景，配 hooks 验证门槛形成硬闭环
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 let wsDir = null; // 工作目录（agent-host 注入；ctx.cwd 是进程 cwd 不可靠，见 #105）
 let agentDir = null; // 沙箱 agentDir（hooks checker 脚本落盘处）
@@ -50,6 +51,42 @@ function findProjectRoot(startFile) {
 }
 
 const out = (text, ok = true) => ({ content: [{ type: "text", text }], details: { ok } });
+
+/** P62：ast-grep 二进制定位（打包态 extraResources / dev 态 node_modules） */
+function sgBin() {
+	try {
+		const packed = path.join(process.resourcesPath ?? "", "ast-grep.exe");
+		if (packed && fs.existsSync(packed)) return packed;
+	} catch { /* 非 electron 环境 */ }
+	for (const p of [
+		path.join(process.cwd(), "resources", "bin", "ast-grep.exe"),
+		path.join(process.cwd(), "node_modules", "@ast-grep", "cli", "ast-grep.exe"),
+	]) {
+		if (fs.existsSync(p)) return p;
+	}
+	return null;
+}
+
+/** sg 语言参数按扩展名映射（不支持的语言返回 null → 提示用 edit） */
+function sgLang(file) {
+	const ext = path.extname(file).toLowerCase();
+	const map = { ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript", ".jsx": "javascript",
+		".ts": "typescript", ".mts": "typescript", ".cts": "typescript", ".tsx": "tsx",
+		".py": "python", ".rs": "rust", ".go": "go", ".java": "java", ".c": "c", ".h": "c", ".cpp": "cpp", ".hpp": "cpp", ".json": "json", ".html": "html", ".css": "css" };
+	return map[ext] ?? null;
+}
+
+/** P62：测试命令探测（返回 { cmd, args 模板, name } 或 null） */
+function detectTestRunner(cwd) {
+	try {
+		const pkg = JSON.parse(fs.readFileSync(path.join(cwd, "package.json"), "utf8"));
+		if (pkg.scripts?.test) return { kind: "npm", cmd: "npm", base: ["test"] };
+	} catch { /* 非 npm */ }
+	if (fs.existsSync(path.join(cwd, "pytest.ini")) || fs.existsSync(path.join(cwd, "pyproject.toml")) || fs.existsSync(path.join(cwd, "setup.py"))) return { kind: "pytest", cmd: "python", base: ["-m", "pytest"] };
+	if (fs.existsSync(path.join(cwd, "go.mod"))) return { kind: "go", cmd: "go", base: ["test", "./..."] };
+	if (fs.existsSync(path.join(cwd, "Cargo.toml"))) return { kind: "cargo", cmd: "cargo", base: ["test"] };
+	return null;
+}
 
 /** 单文件诊断：按扩展名分发到最轻量的编译器/检查器 */
 function diagFile(absFile) {
@@ -168,6 +205,115 @@ export const codeIntelTools = [
 			return out(
 				`项目类型分析：\n- ${notes.join("\n- ")}\n\n建议配置（请用 write 工具原样写入 ${target.split(path.sep).join("/")}，写完立即生效）：\n${JSON.stringify(hooks, null, 2)}`,
 			);
+		},
+	},
+	{
+		name: "ast_edit",
+		label: "结构化编辑",
+		description:
+			"用 ast-grep 按语法树批量替换代码（P62）：pattern 里用 $VAR 匹配单节点、$$$REST 匹配序列。先预览（apply 省略）统计匹配数：0 处报错（放宽 pattern），超 30 处拒绝（收窄 path 或加上下文）；确认后传 apply=true 写入。语法树级替换天然不错配引号/缩进——重命名/大范围重构首选，小改动用 edit 即可。支持 js/ts/tsx/py/go/rust/java/c/cpp/json/html/css。",
+		promptSnippet: "- ast_edit: ast-grep 语法树批量替换（重命名/重构首选，不错配）",
+		parameters: {
+			type: "object",
+			properties: {
+				pattern: { type: "string", description: "查找模式（$VAR 单节点，$$$REST 序列）" },
+				rewrite: { type: "string", description: "替换模板（可引用 pattern 变量）" },
+				path: { type: "string", description: "目标文件或目录（相对工作区或绝对；目录递归）" },
+				lang: { type: "string", description: "可选：语言（默认按扩展名推断）" },
+				apply: { type: "boolean", description: "true=写入；省略=只预览" },
+			},
+			required: ["pattern", "rewrite", "path"],
+		},
+		execute(_id, params = {}) {
+			if (!params.pattern || params.rewrite === undefined || !params.path) return out("缺少参数（pattern/rewrite/path 均必填）", false);
+			const bin = sgBin();
+			if (!bin) return out("ast-grep 二进制不可用——请改用 edit 工具做文本替换", false);
+			const target0 = resolveInWs(String(params.path));
+			if (!fs.existsSync(target0)) return out(`路径不存在：${target0}`, false);
+			// 坑：ast-grep 把路径参数当 glob 模式，Windows 反斜杠被视为转义符→静默 0 匹配/exit1——一律转正斜杠
+			const target = target0.split(path.sep).join("/");
+			const isDir = fs.statSync(target0).isDirectory();
+			if (!isDir) {
+				const lang = params.lang || sgLang(target);
+				if (!lang) return out(`不支持的语言：${path.extname(target) || target}（ast_edit 面向代码文件；配置/文本用 edit）`, false);
+			}
+			let preview;
+			try {
+				preview = execFileSync(bin, [
+					"run", "--pattern", String(params.pattern), "--json=compact",
+					...(params.lang ? ["-l", String(params.lang)] : []),
+					target,
+				], { encoding: "utf8", timeout: 30000, maxBuffer: 32 * 1024 * 1024, windowsHide: true });
+			} catch (e) {
+				return out(`ast-grep 执行失败：${String(e.stderr ?? e.message).slice(0, 300)}`, false);
+			}
+			let matches = [];
+			try { matches = JSON.parse(preview); } catch { /* 空输出 = 0 匹配 */ }
+			const n = Array.isArray(matches) ? matches.length : 0;
+			if (n === 0) return out("0 处匹配——pattern 太窄或语法不匹配。可用 code_symbols 先定位，或放宽 pattern 重试。", false);
+			if (n > 30 && !params.apply) return out(`${n} 处匹配，超 30——预览拒绝。请收窄 path 范围或给 pattern 加更多上下文，避免误伤。`, false);
+			const where = matches.slice(0, 5).map((m) => `${m.file?.file ?? "?"}:${m.metaVariables?.single?.start?.line ?? "?"}`).join(", ");
+			if (!params.apply) return out(`${n} 处匹配（${where}${n > 5 ? " …" : ""}）。确认无误后传 apply=true 写入。`);
+			// 应用重写（spawnSync：ast-grep 把 "Applied N changes" 写 stderr，execFileSync 拿不到 stderr）
+			const rr = spawnSync(bin, [
+				"run", "--pattern", String(params.pattern), "--rewrite", String(params.rewrite), "--update-all",
+				...(params.lang ? ["-l", String(params.lang)] : []),
+				target,
+			], { encoding: "utf8", timeout: 60000, maxBuffer: 32 * 1024 * 1024, windowsHide: true });
+			const all = String(rr.stdout ?? "") + String(rr.stderr ?? "");
+			if (rr.status !== 0) return out(`ast-grep 重写失败：${String(rr.stderr ?? rr.error?.message ?? "").slice(0, 300)}`, false);
+			const applied = /Applied (\d+) changes/.exec(all)?.[1] ?? "?";
+			return out(`已应用 ${applied} 处替换（${target}）。建议立即 code_diag 或 run_tests 自证。`, true);
+		},
+	},
+	{
+		name: "run_tests",
+		label: "跑测试",
+		description:
+			"在工作区跑测试套件（P62）：自动探测 npm test / pytest / go test / cargo test。传 file 可尝试只跑相关测试（npm 项目默认 vitest；不适用则回落全套）。改代码后优先用它自证——验证行为而不只是语法。输出自动截断保留尾部（错误通常在尾部）。",
+		promptSnippet: "- run_tests: 跑项目测试（npm/pytest/go/cargo 自动探测），改码后自证首选",
+		parameters: {
+			type: "object",
+			properties: { file: { type: "string", description: "可选：相关源文件/测试文件路径，尝试只跑受影响测试" } },
+		},
+		execute(_id, params = {}) {
+			const cwd = wsDir || process.cwd();
+			const runner = detectTestRunner(cwd);
+			if (!runner) return out("未探测到测试设施（package.json scripts.test / pytest / go / cargo 均无）——用 code_diag 做语法自证即可", false);
+			let args = [...runner.base];
+			if (params.file) {
+				const abs = resolveInWs(String(params.file));
+				let rel = path.relative(cwd, abs).split(path.sep).join("/");
+				if (runner.kind === "npm") {
+					if (!/(test|spec)\./.test(rel)) {
+						const stem = path.basename(rel, path.extname(rel));
+						const ext = path.extname(rel);
+						const cand = ["test", "tests", "__tests__", "src"].flatMap((d) => [path.join(cwd, d, `${stem}.test${ext}`), path.join(cwd, d, `${stem}.spec${ext}`)]).filter((p2) => fs.existsSync(p2));
+						if (cand.length) rel = path.relative(cwd, cand[0]).split(path.sep).join("/");
+					}
+					args = ["exec", "vitest", "run", rel]; // npm 项目默认 vitest；失败信息里会体现，非 vitest 项目回落 npm test 重试
+				} else if (runner.kind === "pytest") {
+					args.push(rel);
+				}
+				// go/cargo 按包粒度，不按文件过滤
+			}
+			let r;
+			try {
+				r = execFileSync(runner.cmd, args, { cwd, encoding: "utf8", timeout: 180000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, shell: runner.kind === "npm" });
+			} catch (e) {
+				const stdout = String(e.stdout ?? "");
+				// npm 项目 vitest 不存在时回落 npm test
+				if (runner.kind === "npm" && /is not recognized|not found|ERR_.unknown/.test(stdout + String(e.stderr ?? ""))) {
+					try {
+						r = execFileSync(runner.cmd, ["test"], { cwd, encoding: "utf8", timeout: 180000, maxBuffer: 16 * 1024 * 1024, windowsHide: true, shell: true });
+					} catch (e2) {
+						return out(`测试失败（exit ${e2.status ?? "?"}）：\n${String(e2.stdout ?? "").slice(-3000) || String(e2.message).slice(0, 800)}`, false);
+					}
+				} else {
+					return out(`测试失败（exit ${e.status ?? "?"}）：\n${stdout.slice(-3000) || String(e.message).slice(0, 800)}`, false);
+				}
+			}
+			return out(`测试通过：\n${String(r).slice(-3000)}`);
 		},
 	},
 ];

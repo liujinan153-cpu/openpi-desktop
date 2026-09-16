@@ -29,8 +29,9 @@ import { browserTools, BROWSER_WRITE } from "./browser-tools.mjs"; // P52 浏览
 import { gitTools, autoCheckpointIfNeeded, checkpointSystemPrompt, verificationSystemPrompt, setGitWorkspace } from "./git-checkpoint.mjs"; // P53 git 检查点 + P54 验证闭环
 import { memoryTools, memorySystemPrompt, setMemoryWorkspace } from "./memory-tools.mjs"; // P55 项目记忆
 import { computerTools } from "./computer-tools.mjs"; // P56 OS 级 computer-use
-import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58 轻量代码诊断 + 验证门槛引导
+import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58 轻量代码诊断 + 验证门槛引导 + P62 ast_edit/run_tests
 import { imageTools } from "./image-tools.mjs"; // P61 CogView 生图
+import { repoMapSystemPrompt } from "./repo-map.mjs"; // P62 工作区地图注入
 
 /** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
 function buildSubagentTool(host) {
@@ -1072,7 +1073,8 @@ function planPromptExtension(hostRef) {
 				const cp = checkpointSystemPrompt(event.cwd || hostRef.workspace || process.cwd());
 				const vf = verificationSystemPrompt();
 				const memo = memorySystemPrompt();
-				const extra = (cp ? cp : "") + (vf ? vf : "") + (memo ? memo : "");
+				const rm = repoMapSystemPrompt(event.cwd || hostRef.workspace || process.cwd()); // P62：工作区地图（带缓存）
+				const extra = (cp ? cp : "") + (vf ? vf : "") + (memo ? memo : "") + (rm ? rm : "");
 				return extra ? { systemPrompt: event.systemPrompt + extra } : undefined;
 			}
 			return {

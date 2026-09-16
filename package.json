@@ -1,6 +1,6 @@
 {
   "name": "openpi-desktop",
-  "version": "0.50.1",
+  "version": "0.51.0",
   "private": true,
   "type": "module",
   "description": "OpenPi Desktop - desktop agent harness powered by pi coding agent SDK",
@@ -65,6 +65,10 @@
       {
         "from": "src/main/computer-ops.ps1",
         "to": "computer-ops.ps1"
+      },
+      {
+        "from": "resources/bin/ast-grep.exe",
+        "to": "ast-grep.exe"
       }
     ],
     "asarUnpack": [

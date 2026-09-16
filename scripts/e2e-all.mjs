@@ -54,6 +54,7 @@ const SUITES = [
 	{ file: "e2e-p57.mjs", label: "验证硬门槛", ver: "0.46.0" },
 	{ file: "e2e-p58.mjs", label: "门槛项目化+代码诊断", ver: "0.47.0" },
 	{ file: "e2e-p59.mjs", label: "CUA按名点控件", ver: "0.48.0" },
+	{ file: "e2e-p62.mjs", label: "编程三件套(repoMap/astEdit/runTests)", ver: "0.51.0" },
 	{ file: "e2e-p27.mjs", label: "checkpoint 回滚+@补全", ver: "0.23.0" },
 	{ file: "e2e-office-skills.mjs", label: "内置办公技能", ver: "0.21.0" },
 	{
