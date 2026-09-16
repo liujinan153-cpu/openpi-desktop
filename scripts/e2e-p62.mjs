@@ -29,7 +29,7 @@ const llm = http.createServer((req, res) => {
 		res.writeHead(200, { "Content-Type": "text/event-stream" });
 		let body = {};
 		try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* 忽略 */ }
-		if (process.env.P62_DUMP) console.error(`[p62mock] 请求: tools=${(body.messages ?? []).length}条 last=${(() => { const l = (body.messages ?? []).at(-1); return l ? String(l.role) + ":" + String(typeof l.content === "string" ? l.content : JSON.stringify(l.content)).slice(0, 100) : "none"; })()}`);
+		if (process.env.P62_DUMP) console.error(`[p62mock] 请求: msgs=${(body.messages ?? []).length}条 tools=[${(body.tools ?? []).map(t => t.function?.name ?? t.name).join(",")}] last=${(() => { const l = (body.messages ?? []).at(-1); return l ? String(l.role) + ":" + String(typeof l.content === "string" ? l.content : JSON.stringify(l.content)).slice(0, 100) : "none"; })()}`);
 		const last = body.messages?.[body.messages.length - 1];
 		const systemMsg = body.messages?.find((m) => m.role === "system");
 		const sysText = typeof systemMsg?.content === "string" ? systemMsg.content : JSON.stringify(systemMsg?.content ?? "");
@@ -75,7 +75,7 @@ const llm = http.createServer((req, res) => {
 llm.listen(LLM, "127.0.0.1");
 
 /* ---- 前置：workspace（npm 项目 + calc 测试靶子） + 清残留 ---- */
-const ws = path.join(os.homedir(), "openpi-workspace");
+const ws = path.join(os.tmpdir(), "p62-ws-" + Date.now());
 fs.mkdirSync(path.join(ws, "test"), { recursive: true });
 fs.writeFileSync(path.join(ws, "package.json"), JSON.stringify({ name: "openpi-ws", version: "1.0.0", scripts: { test: "node test/calc.test.js" } }, null, 2));
 fs.writeFileSync(path.join(ws, "p62-calc.js"), "function calcAdd(a, b) {\n  return a + b;\n}\nmodule.exports = { calcAdd };\n");

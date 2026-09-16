@@ -44,7 +44,7 @@ const llm = http.createServer((req, res) => {
 			sse(res, { choices: [{ delta: { content: text } }] });
 			sse(res, { choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 150, completion_tokens: 50 } });
 		};
-		const ws = path.join(os.homedir(), "openpi-workspace");
+		const ws = path.join(os.tmpdir(), "p63-ws-" + Date.now());
 		// 流程 A：lsp_diag 诊断坏 TS 文件 → finish
 		if (last?.role === "user" && textOf(last).includes("P63-DIAG")) {
 			toolCall("a1", "lsp_diag", { path: "p63-bad.ts" });
@@ -78,7 +78,7 @@ const llm = http.createServer((req, res) => {
 llm.listen(LLM, "127.0.0.1");
 
 /* ---- 前置：workspace + 坏 TS 靶子 ---- */
-const ws = path.join(os.homedir(), "openpi-workspace");
+const ws = path.join(os.tmpdir(), "p63-ws-" + Date.now());
 fs.mkdirSync(ws, { recursive: true });
 fs.writeFileSync(path.join(ws, "package.json"), JSON.stringify({ name: "openpi-ws", version: "1.0.0" }, null, 2));
 fs.writeFileSync(path.join(ws, "p63-bad.ts"), "export function bad(x: number): string {\n  return x.notAMethod();\n}\nexport const n: string = 123;\n");
@@ -158,7 +158,7 @@ ok("⓪ 切到工作区会话", true);
 /* ① lsp_diag 诊断坏文件（断言取 mock 端变量，渲染层气泡是流式的，文本截取时机不稳定） */
 globalThis.p63diag = null;
 await ev(`(() => { sendText("P63-DIAG 用语义诊断检查 p63-bad.ts 有什么类型错误"); return 1; })()`);
-for (let i = 0; i < 120 && globalThis.p63diag === null; i++) await sleep(500);
+for (let i = 0; i < 300 && globalThis.p63diag === null; i++) await sleep(500); // 150s 窗口：主会话首轮 LLM 请求偶发极慢
 await sleep(1000); // 等 tool result 完整
 const t1 = globalThis.p63diag ?? "[TIMEOUT] diag 流程未完成";
 ok("① lsp_diag 报出语义错误", t1.includes("diag=1"), t1.slice(0, 120));
@@ -183,7 +183,7 @@ ok("③ goal 输入条弹出且锁定成功", goalUi.includes("LOCKED") && goalU
 /* ③ goal 模式全链路：审批直通写文件 + 提示注入 */
 globalThis.p63phase = "goal";
 await ev(`(() => { sendText("P63-GOAL 按目标执行：直接写入 p63-goal-proof.txt"); return 1; })()`);
-for (let i = 0; i < 120 && !globalThis.p63done; i++) await sleep(500);
+for (let i = 0; i < 300 && !globalThis.p63done; i++) await sleep(500);
 const t2 = globalThis.p63result ?? "[TIMEOUT] mock 未收到完整流程";
 ok("④ goal 提示注入系统提示", t2.includes("goal=1"), t2.slice(0, 120));
 ok("⑤ 目标+验收标准文本注入", t2.includes("text=1"), t2.slice(0, 120));

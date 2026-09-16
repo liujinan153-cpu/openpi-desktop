@@ -34,15 +34,16 @@ const llm = http.createServer((req, res) => {
 		let body = {};
 		try { body = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* 忽略 */ }
 		const last = body.messages?.[body.messages.length - 1];
+		if (process.env.P49_DUMP) console.error("[p49mock] last=", last?.role, ":", String(typeof last?.content === "string" ? last.content : JSON.stringify(last?.content ?? "")).slice(0, 120));
 		const textOf = (m) => (typeof m?.content === "string" ? m.content : JSON.stringify(m?.content ?? ""));
 		if (last?.role === "user" && textOf(last).includes("SUBAGENT-X")) {
 			// 主会话：派发子任务（子代理 prompt 自带 REPORT-MARK）
 			sse(res, { choices: [{ delta: { tool_calls: [{ index: 0, id: "c1", type: "function", function: { name: "subagent", arguments: "" } }] } }] });
 			sse(res, { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: JSON.stringify({ prompt: "REPORT-MARK 调研目标：确认子代理链路", task: "调研" }) } }] } }] });
 			sse(res, { choices: [{ delta: {}, finish_reason: "tool_calls" }], usage: { prompt_tokens: 100, completion_tokens: 30 } });
-		} else if (last?.role === "user" && textOf(last).includes("REPORT-MARK")) {
-			// 子代理轮：直接给结论（不调工具）
-			sse(res, { choices: [{ delta: { content: "SUBAGENT_RESULT_OK 子代理结论：链路正常" } }] });
+		} else if (last?.role === "user" && (textOf(last).includes("REPORT-MARK") || textOf(last).includes("[子任务完成]"))) {
+			// 子代理轮 / P64 结论推送轮：直接给结论（不调工具）；结论带 END49 供 lastText 捕获
+			sse(res, { choices: [{ delta: { content: "SUBAGENT_RESULT_OK 子代理结论：链路正常 END49" } }] });
 			sse(res, { choices: [{ delta: {}, finish_reason: "stop" }], usage: { prompt_tokens: 60, completion_tokens: 20 } });
 		} else if (last?.role === "user" && textOf(last).includes("RUN-BASH")) {
 			sse(res, { choices: [{ delta: { tool_calls: [{ index: 0, id: "c2", type: "function", function: { name: "bash", arguments: "" } }] } }] });
@@ -119,9 +120,14 @@ const lastText = () => ev(`(async () => {
 	return asst.length ? asst.at(-1).textContent.slice(0, 800) : "";
 })()`);
 
-/* ① 子代理全链路 */
+/* ① 子代理全链路（P64 语义：派发立即返回，结论经 followUp 异步推送——轮询等待推送到位） */
 await ev(`sendText("SUBAGENT-X 派个调研任务")`);
-const t1 = await lastText();
+let t1 = "";
+for (let i = 0; i < 120; i++) {
+	await sleep(500);
+	t1 = await lastText();
+	if (t1.includes("SUBAGENT_RESULT_OK")) break;
+}
 ok("① 子代理结论回主会话", t1.includes("SUBAGENT_RESULT_OK"), t1.slice(0, 160));
 ok("① 工具卡「派发子任务」", await ev(`[...document.querySelectorAll(".tool .name")].some(n => /派发子任务|subagent/.test(n.textContent))`));
 

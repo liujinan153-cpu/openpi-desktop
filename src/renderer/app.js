@@ -301,6 +301,7 @@ function newAssistantBubble() {
 	cursor.className = "cursor";
 	body.appendChild(cursor);
 	chat.appendChild(el);
+	pinLiveBar();
 	scrollBottom();
 	state.cur = { root: el, bodyEl: body, cursor, text: "", thinkingEl: null, thinkingText: "", startTs: Date.now() };
 }
@@ -426,8 +427,16 @@ function toolCard(id, name, args) {
 	outEl.className = "out";
 	card.append(head, argsEl, outEl);
 	ensureBubble().bodyEl.appendChild(card);
+	pinLiveBar();
 	scrollBottom();
-	state.tools.set(id, { card, outEl, out: "", st: head.querySelector(".st") });
+	liveBarTool(name);
+	const t0 = Date.now();
+	const timer = setInterval(() => {
+		const rec = state.tools.get(id);
+		if (!rec) return;
+		rec.st.textContent = `运行中 · ${Math.round((Date.now() - t0) / 1000)}s`;
+	}, 1000);
+	state.tools.set(id, { card, outEl, out: "", st: head.querySelector(".st"), timer });
 }
 
 function toolUpdate(id, partial) {
@@ -458,6 +467,8 @@ function extractTextDeep(v, depth = 0) {
 function toolEnd(id, toolName, isError, result) {
 	const t = state.tools.get(id);
 	if (!t) return;
+	clearInterval(t.timer);
+	liveBarTool(null); // 单个工具结束 → 回到“工作中…”
 	t.st.textContent = isError ? "✗ 失败" : "✓ 完成";
 	t.st.className = "st " + (isError ? "err" : "ok");
 
@@ -519,6 +530,36 @@ function setStreaming(on) {
 	input.placeholder = on
 		? "Agent 运行中… Enter = 插话 (steer)"
 		: "向 Agent 下达任务…  (Enter 发送 / Shift+Enter 换行)";
+	on ? showLiveBar() : hideLiveBar();
+}
+
+/* ============ 活性指示（解决“看起来卡死”）：脉冲点 + 秒数跳动 + 当前工具名 ============ */
+function showLiveBar() {
+	hideLiveBar();
+	const el = document.createElement("div");
+	el.className = "live-bar";
+	el.innerHTML = `<span class="lb-dot"></span><span class="lb-tx">工作中…</span><span class="lb-sec">0s</span>`;
+	chat.appendChild(el);
+	state.liveBar = {
+		el, tx: el.querySelector(".lb-tx"), sec: el.querySelector(".lb-sec"), start: Date.now(),
+		timer: setInterval(() => {
+			if (!state.liveBar) return;
+			state.liveBar.sec.textContent = `${Math.round((Date.now() - state.liveBar.start) / 1000)}s`;
+		}, 1000),
+	};
+}
+function pinLiveBar() { if (state.liveBar) chat.appendChild(state.liveBar.el); } // 始终钉在聊天区最底部
+function liveBarTool(name) {
+	if (!state.liveBar) return;
+	state.liveBar.tx.textContent = name ? `运行工具 ${name}…` : "工作中…";
+}
+function hideLiveBar() {
+	const lb = state.liveBar;
+	if (!lb) return;
+	state.liveBar = null;
+	clearInterval(lb.timer);
+	for (const t of state.tools.values()) clearInterval(t.timer); // 兜底：中断时清理工具卡计时器
+	lb.el.remove();
 }
 
 function renderQueue() {

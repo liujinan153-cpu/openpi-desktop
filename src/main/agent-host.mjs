@@ -763,10 +763,14 @@ export class AgentHost {
 			// 改为后台跑 + 完成后 followUp 把结论自动注入主会话（SDK 原生：agent 结束后也能唤醒处理）
 			const p = this.#runWorker(worker, j.prompt, WORKER_ROLES[role], signal);
 			p.then((r) => {
-				// #117：主会话 loop 已结束后 followUp 队列无人消费——直接 prompt 开新轮注入结论
-				try { this.#ensure(); } catch { return; }
-				this.session?.prompt(`[子任务完成] ${r.content[0].text}`, { streamingBehavior: "followUp" }).then(() => {
-				}).catch(() => { try { this.session?.steer?.(r.content[0].text); } catch { /* 尽力 */ } });
+				// #117：结论回喂三态——loop 空闲直接 prompt 开新轮；loop 忙（重入保护拒）转 followUp 排队；
+				// 延迟 1.5s 等主会话 loop 完全收尾（followUp 入队晚于 drain 检查会挂队列无人消费）
+				setTimeout(() => {
+					try { this.#ensure(); } catch { return; }
+					this.session?.prompt(`[子任务完成] ${r.content[0].text}`).catch(() => {
+						this.session?.prompt(`[子任务完成] ${r.content[0].text}`, { streamingBehavior: "followUp" }).catch(() => { try { this.session?.steer?.(r.content[0].text); } catch { /* 尽力 */ } });
+					});
+				}, 1500);
 			}).catch(() => {});
 			ids.push(`${id}(${role}:${worker.task})`);
 		}
