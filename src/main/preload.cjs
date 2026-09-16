@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld("openpi", {
 	sessionsMetaGet: () => ipcRenderer.invoke("sessions:meta-get"),
 	sessionsMetaSet: (id, patch) => ipcRenderer.invoke("sessions:meta-set", id, patch),
 	sessionDelete: (file) => ipcRenderer.invoke("sessions:delete", file),
+	sessionsImportScan: () => ipcRenderer.invoke("sessions:import-scan"), // P64⑧
+	sessionsImportDo: (kind) => ipcRenderer.invoke("sessions:import-do", kind),
 	openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
 	openWorkspaceFile: (file) => ipcRenderer.invoke("shell:open-workspace-file", file),
 	resume: (file) => ipcRenderer.invoke("agent:resume", file),

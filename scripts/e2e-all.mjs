@@ -56,6 +56,8 @@ const SUITES = [
 	{ file: "e2e-p59.mjs", label: "CUA按名点控件", ver: "0.48.0" },
 	{ file: "e2e-p62.mjs", label: "编程三件套(repoMap/astEdit/runTests)", ver: "0.51.0" },
 	{ file: "e2e-p63.mjs", label: "LSP语义诊断+目标模式", ver: "0.52.0" },
+	{ file: "e2e-p64.mjs", label: "并行worker多角色(run_cmd)", ver: "0.53.0" },
+	{ file: "e2e-p64b.mjs", label: "会话导入(ClaudeCode)", ver: "0.53.0" },
 	{ file: "e2e-p27.mjs", label: "checkpoint 回滚+@补全", ver: "0.23.0" },
 	{ file: "e2e-office-skills.mjs", label: "内置办公技能", ver: "0.21.0" },
 	{

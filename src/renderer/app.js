@@ -1172,6 +1172,23 @@ function autoGrow() {
 /* ================= 事件绑定 ================= */
 btnSend.addEventListener("click", () => (state.streaming ? stop() : send()));
 $("btn-new-side").addEventListener("click", newSession);
+/* P64⑧：外部会话导入 */
+$("btn-import")?.addEventListener("click", async () => {
+	const sources = await window.openpi.sessionsImportScan().catch(() => []);
+	if (!sources.length) { addSysLine("未检测到可导入的外部会话（支持：Claude Code ~/.claude/projects）", true); return; }
+	const names = sources.map((s) => `${s.kind}（${s.count} 个会话）`).join("、");
+	const ok = await miniConfirm("导入外部会话", `检测到：${names}。转换后出现在会话列表（只读回看，可搜索）。继续？`);
+	if (!ok) return;
+	let total = 0;
+	for (const s of sources) {
+		try {
+			const r = await window.openpi.sessionsImportDo(s.kind);
+			total += r.imported ?? 0;
+			addSysLine(`📥 ${s.kind}：新导入 ${r.imported}，已存在/无文本跳过 ${r.skipped}`);
+		} catch (err) { addSysLine(`${s.kind} 导入失败: ${err.message ?? err}`, true); }
+	}
+	if (total > 0) loadSessions();
+});
 async function newSession() {
 	resetChat();
 	await startSession(state.session?.workspace);

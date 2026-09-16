@@ -10,7 +10,7 @@
  *
  * 原则：不修改 Pi 源码，只调用 @earendil-works/pi-coding-agent 公开 SDK。
  */
-import { exec as hookExec } from "node:child_process";
+import { exec as hookExec, spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -33,20 +33,68 @@ import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58
 import { imageTools } from "./image-tools.mjs"; // P61 CogView 生图
 import { repoMapSystemPrompt } from "./repo-map.mjs"; // P62 工作区地图注入
 
-/** P50：子代理工具（agent-as-tool）——独立上下文的只读研究员，结果摘要回主会话 */
+/** P64：worker 专用命令执行工具——不给内置 bash（#117：worker 会话激活内置 bash 会卡死主会话 agent loop，原因在 SDK 的 shell 初始化），自定义实现还能精确拦危险命令 */
+function buildRunCmdTool(host) {
+	return {
+		name: "run_cmd",
+		label: "执行命令",
+		description: "在子代理工作区执行 shell 命令（跑测试/构建/脚本）。禁止危险命令（rm -rf 等）。返回 stdout/stderr 尾部。",
+		promptSnippet: "- run_cmd: 在工作区执行命令（跑测试/构建），危险命令拒绝",
+		parameters: Type.Object({ command: Type.String({ description: "要执行的命令" }) }),
+		execute(_id, params = {}) {
+			const ret = (text, ok = true) => ({ content: [{ type: "text", text }], details: { ok } });
+			const cmd = String(params.command ?? "").trim();
+			if (!cmd) return ret("缺少 command", false);
+			if (RISKY.some((re) => re.test(cmd))) return ret(`危险命令被拒绝：${cmd.slice(0, 100)}`, false);
+			// P62 教训：execFileSync 拿不到 stderr 且异常对象经 SDK 序列化后会丢信息——用 spawnSync 同步拿全三个流
+			const r = spawnSync(cmd, { encoding: "utf8", timeout: 120000, maxBuffer: 8 * 1024 * 1024, windowsHide: true, shell: true, cwd: host?.workspace || process.cwd() });
+			const all = String(r.stdout ?? "") + String(r.stderr ?? "");
+			if (r.error) return ret(`命令启动失败：${String(r.error.message ?? r.error).slice(0, 300)}`, false);
+			if (r.status !== 0) return ret(`命令失败（exit ${r.status ?? "?"}）：\n${all.slice(-3000) || "（无输出）"}`, false);
+			return ret(all.slice(-4000) || "（无输出）", true);
+		},
+	};
+}
+
+/** P64：worker 角色（⑦多角色并行）：工具白名单 + 角色提示前缀；权限再受主会话档位约束（readonly 档下 worker 也只读） */
+const WORKER_ROLES = {
+	explore: {
+		extraTools: [],
+		prefix: "你是探索型子代理：只读调研，不改任何东西。输出发现与证据（文件路径+关键行）。",
+	},
+	coder: {
+		extraTools: ["write", "edit", "run_cmd"],
+		prefix: "你是 coder 子代理：专注改码。改完用 run_tests / code_diag / lsp_diag 自证；bash 只跑构建/测试类命令。输出改动清单（文件+改动点+自证证据）。",
+	},
+	tester: {
+		extraTools: ["run_cmd"],
+		prefix: "你是 tester 子代理：只负责跑测试/验证（run_tests / bash 跑构建与测试命令），不修代码。输出通过/失败证据（贴关键输出），失败时给出复现命令。",
+	},
+	reviewer: {
+		extraTools: [],
+		prefix: "你是 reviewer 子代理：对抗式审查，找 bug、边界情况、安全风险。输出问题清单：严重度+文件:行号+问题描述+修复建议。不改代码。",
+	},
+};
+
+/** P50/P64：子代理工具（agent-as-tool）——独立上下文子代理；P64 支持角色 + spawn/wait 并行 */
 function buildSubagentTool(host) {
 	return {
 		name: "subagent",
 		label: "派发子任务",
 		description:
-			"派发一个独立上下文的子代理去完成子任务（如大范围探索代码、多篇资料调研、批量比对）。" +
-			"子代理看不到主会话内容，prompt 必须自包含（背景 + 目标 + 期望产出）。" +
-			"子代理只有只读工具（读文件/搜索/联网），不能写文件或执行命令。" +
-			"返回子代理的最终结论文本。同一时间只能跑一个子任务。",
-		promptSnippet: "- subagent: 派发独立子任务（探索/调研），结果摘要回主会话；prompt 必须自包含",
+			"派发独立上下文的后台 worker（P64 四角色并行）。单任务：传 prompt/role；多任务并行：传 batch=[{prompt,task,role},...]，多个同时后台跑，各自完成后结论自动推送进来（无需轮询等待）。" +
+			"role=explore（默认只读调研）/coder（可改码+run_cmd 自证）/tester（跑测试验证）/reviewer（只审查）。" +
+			"权限受主会话档位约束：只读档下 worker 也只读；危险命令任何档位都拒绝。同时最多 4 个 worker。prompt 必须自包含（子代理看不到主会话）。派发后先做自己的事，收到 [子任务完成] 推送再汇总。",
+		promptSnippet: "- subagent: 派发子任务（explore/coder/tester/reviewer 四角色；batch 并行；结论完成后自动推送，收到 [子任务完成] 后汇总）",
 		parameters: Type.Object({
-			prompt: Type.String({ description: "子任务完整描述（自包含，子代理看不到主会话）" }),
+			prompt: Type.Optional(Type.String({ description: "子任务完整描述（单任务模式必填，自包含）" })),
 			task: Type.Optional(Type.String({ description: "一句话任务标题（用于展示）" })),
+			role: Type.Optional(Type.String({ description: "角色：explore（默认）/coder/tester/reviewer" })),
+			batch: Type.Optional(Type.Array(Type.Object({
+				prompt: Type.String({ description: "子任务完整描述（自包含）" }),
+				task: Type.Optional(Type.String({ description: "一句话任务标题" })),
+				role: Type.Optional(Type.String({ description: "角色：explore/coder/tester/reviewer" })),
+			}), { description: "批量并行编排：同时派多个 worker，等全部完成聚合返回（最多 4 个）" })),
 		}),
 		async execute(_id, params, signal, onUpdate) {
 			return host.runSubagent(params, signal, onUpdate);
@@ -298,7 +346,7 @@ export class AgentHost {
 			modelRuntime: this.modelRuntime,
 			sessionManager,
 			resourceLoader,
-			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, ...codeIntelTools, ...imageTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50 子代理 + P55 记忆 + P56 电脑操作 + P58 代码诊断 + P61 生图（MCP 桥经 resourceLoader 扩展注入，P28）
+			customTools: [...webTools, ...browserTools, ...gitTools, ...memoryTools, ...computerTools, ...codeIntelTools, ...imageTools, buildSubagentTool(this)], // P47 联网 + P52 浏览器 + P53 检查点 + P50/P64 子代理（四角色并行）+ P55 记忆 + P56 电脑操作 + P58 代码诊断 + P61 生图（MCP 桥经 resourceLoader 扩展注入，P28）
 		});
 
 		// 扩展 UI 桥接（M2）：confirm/select/input → 渲染层模态
@@ -691,35 +739,71 @@ export class AgentHost {
 		return totals;
 	}
 
-	/** P50：跑一个子代理（独立上下文，只读工具，结果文本返回主会话） */
+	/** P64：worker 注册表（⑥并行）：id → { id, role, task, started, status, result } */
+	#workers = new Map();
+	#workerSeq = 0;
+
+	/** P64⑥⑦：子代理（单任务或 batch 批量并行编排，全部阻塞聚合返回） */
+	runSubagentVersion = "p64";
 	async runSubagent(params, signal, onUpdate) {
-		if (this._subagentBusy) {
-			return { content: [{ type: "text", text: "已有子任务在运行，请等它完成后再派发。" }], details: { ok: false } };
+		const jobs = Array.isArray(params.batch) && params.batch.length
+			? params.batch.slice(0, 4).map((b) => ({ prompt: String(b?.prompt ?? ""), task: b?.task ? String(b.task) : undefined, role: b?.role }))
+			: [{ prompt: String(params.prompt ?? ""), task: params.task ? String(params.task) : undefined, role: params.role }];
+		if (jobs.some((j) => !j.prompt.trim())) return { content: [{ type: "text", text: "缺少 prompt（每个子任务都必须自包含描述）。" }], details: { ok: false } };
+		const running = [...this.#workers.values()].filter((w) => w.status === "running").length;
+		if (running + jobs.length > 4) return { content: [{ type: "text", text: `当前 ${running} 个 worker 在跑，本次要派 ${jobs.length} 个，超上限 4。` }], details: { ok: false } };
+		onUpdate?.({ type: "text", text: `派发 ${jobs.length} 个子任务…` });
+		const ids = [];
+		for (const j of jobs) {
+			const role = WORKER_ROLES[j.role] ? j.role : "explore";
+			const id = `w${++this.#workerSeq}`;
+			const worker = { id, role, task: j.task ?? j.prompt.slice(0, 40), started: Date.now(), status: "running", result: null };
+			this.#workers.set(id, worker);
+			// #117：tool execute 内不能阻塞等待子 LLM 流（Promise.all/await 均会触发 SDK 轮转竞态，主会话 tool result 后不再回喂）——
+			// 改为后台跑 + 完成后 followUp 把结论自动注入主会话（SDK 原生：agent 结束后也能唤醒处理）
+			const p = this.#runWorker(worker, j.prompt, WORKER_ROLES[role], signal);
+			p.then((r) => {
+				// #117：主会话 loop 已结束后 followUp 队列无人消费——直接 prompt 开新轮注入结论
+				try { this.#ensure(); } catch { return; }
+				this.session?.prompt(`[子任务完成] ${r.content[0].text}`, { streamingBehavior: "followUp" }).then(() => {
+				}).catch(() => { try { this.session?.steer?.(r.content[0].text); } catch { /* 尽力 */ } });
+			}).catch(() => {});
+			ids.push(`${id}(${role}:${worker.task})`);
 		}
-		this._subagentBusy = true;
+		return {
+			content: [{ type: "text", text: `已后台派发 ${jobs.length} 个子任务：${ids.join("、")}。各自完成后结论会自动推送进来，届时请汇总。` }],
+			details: { ok: true, count: jobs.length, workerIds: ids },
+		};
+	}
+	/** P64：worker 实际执行体（完成/失败写回 worker 状态；不描主会话 onUpdate —— spawn 模式下工具卡已结束，只写注册表） */
+	async #runWorker(worker, prompt, roleDef, signal) {
 		const started = Date.now();
 		let sub = null;
 		const timer = setTimeout(() => sub?.abort?.(), 8 * 60 * 1000); // 硬超时 8 分钟
 		try {
-			this.#ensure();
-			const model = this.session.model;
-			onUpdate?.({ type: "text", text: `子任务「${params.task ?? params.prompt.slice(0, 40)}」运行中…` });
-			const resourceLoader = await this.#buildLoader(this.workspace, []);
-			setCodeIntelWorkspace(this.workspace, getAgentDir()); // 子代理也带 diag/symbols（需 ws 解析相对路径）
-			const { session } = await createAgentSession({
-				cwd: this.workspace || undefined,
-				agentDir: getAgentDir(), // 与主会话同一配置源（沙箱 env 或真目录），否则 SDK 回退 ~/.pi/agent 导致 baseUrl/auth 脱节（401）
-				// 不显式传 model：跟随主会话相同的默认解析链（显式传 session.model 对象会被另一 provider 同名定义覆盖，#98 同类坑）
-				modelRuntime: this.modelRuntime,
-				sessionManager: SessionManager.inMemory(this.workspace || process.cwd()), // 零文件残留
-				resourceLoader,
-				tools: ["read", "grep", "find", "ls"], // 只读白名单：子代理不能写/执行，不绕过审批
-				customTools: [...webTools, ...gitTools, ...codeIntelTools.filter((t) => t.name !== "verify_init"), memoryTools[0]], // P47 联网 + P53 检查点 + P58 诊断；子代理不给浏览器/verify_init（工作区引导属主代理职责）也不给 memory_write（记忆由主代理统一维护）
-			});
-			sub = session;
-			const onAbort = () => session.abort().catch(() => {});
-			signal?.addEventListener?.("abort", onAbort);
-			await session.prompt(String(params.prompt ?? ""));
+				this.#ensure();
+				const resourceLoader = await this.#buildLoader(this.workspace, []);
+				setCodeIntelWorkspace(this.workspace, getAgentDir()); // 子代理也带 diag/symbols（需 ws 解析相对路径）
+				// 角色工具白名单：只读基座 + 角色额外工具；readonly 档位下降级为纯只读（权限继承父会话）
+				const readOnlyBase = ["read", "grep", "find", "ls"];
+				const extra = APPROVAL.mode === "readonly" ? [] : roleDef.extraTools;
+				const { session } = await createAgentSession({
+					cwd: this.workspace || undefined,
+					agentDir: getAgentDir(), // 与主会话同一配置源（沙箱 env 或真目录），否则 SDK 回退 ~/.pi/agent 导致 baseUrl/auth 脱节（401）
+					// 不显式传 model：跟随主会话相同的默认解析链（显式传 session.model 对象会被另一 provider 同名定义覆盖，#98 同类坑）
+					modelRuntime: this.modelRuntime,
+					sessionManager: SessionManager.inMemory(this.workspace || process.cwd()), // 零文件残留
+					resourceLoader,
+					tools: [...readOnlyBase, ...extra],
+					// P64：worker 侧审批——readonly 档写/执行全拒；其余档位危险命令拒（无 UI 无法确认）、写文件与普通命令按角色白名单直通
+					customTools: [...webTools, ...gitTools, ...codeIntelTools.filter((t) => t.name !== "verify_init"), memoryTools[0], buildRunCmdTool(this)],
+					});
+				sub = session;
+				worker.session = session;
+				const onAbort = () => session.abort().catch(() => {});
+				signal?.addEventListener?.("abort", onAbort);
+				const plist = [session.prompt(roleDef.prefix + "\n\n" + prompt)];
+				await Promise.all(plist);
 			signal?.removeEventListener?.("abort", onAbort);
 			// 取最后一条 assistant 文本作为结论
 			const msgs = session.messages ?? [];
@@ -733,17 +817,36 @@ export class AgentHost {
 				}
 			}
 			if (!result) result = "（子任务无文本结论，可能被中断或出错）";
-			return {
-				content: [{ type: "text", text: `子任务${params.task ? `「${params.task}」` : ""}完成（${Math.round((Date.now() - started) / 1000)}s）：\n\n${result.slice(0, 20000)}` }],
-				details: { ok: true, secs: Math.round((Date.now() - started) / 1000) },
-			};
+			worker.status = "done";
+			worker.result = `子任务「${worker.task}」完成（role=${worker.role}，${Math.round((Date.now() - started) / 1000)}s）：\n\n${result.slice(0, 20000)}`;
+			return { content: [{ type: "text", text: worker.result }], details: { ok: true, secs: Math.round((Date.now() - started) / 1000), workerId: worker.id } };
 		} catch (err) {
-			return { content: [{ type: "text", text: `子任务失败：${String(err?.message ?? err).slice(0, 300)}` }], details: { ok: false } };
+			worker.status = "error";
+			worker.result = `子任务「${worker.task}」失败：${String(err?.message ?? err).slice(0, 300)}`;
+			return { content: [{ type: "text", text: worker.result }], details: { ok: false } };
 		} finally {
 			clearTimeout(timer);
 			try { sub?.dispose?.(); } catch { /* 已释放 */ }
-			this._subagentBusy = false;
+			worker.session = null;
 		}
+	}
+
+	/** P64：workers 管理工具（list/result/cancel） */
+	manageWorkers(params) {
+		const action = String(params.action ?? "list");
+		if (action === "list") {
+			const rows = [...this.#workers.values()].map((w) => `${w.id} [${w.status}] role=${w.role} task=${w.task} (${Math.round((Date.now() - w.started) / 1000)}s)`);
+			return { content: [{ type: "text", text: rows.length ? rows.join("\n") : "无 worker。" }], details: { ok: true } };
+		}
+		const w = this.#workers.get(String(params.id ?? ""));
+		if (!w) return { content: [{ type: "text", text: `worker ${params.id} 不存在。可用：${[...this.#workers.keys()].join(", ") || "无"}` }], details: { ok: false } };
+		if (action === "cancel") {
+			if (w.status === "running") { try { w.session?.abort?.(); } catch { /* 忽略 */ } w.status = "cancelled"; w.result = `子任务「${w.task}」已被取消。`; }
+			return { content: [{ type: "text", text: `已取消 ${w.id}。` }], details: { ok: true } };
+		}
+		if (w.status === "running") return { content: [{ type: "text", text: `${w.id} 还在跑（${Math.round((Date.now() - w.started) / 1000)}s），稍后再取。` }], details: { ok: false } };
+		this.#workers.delete(w.id);
+		return { content: [{ type: "text", text: w.result ?? "（无结论）" }], details: { ok: w.status === "done" } };
 	}
 
 	/** P49：自动压缩开关（SDK 默认开；持久化到全局 settings；无会话时先缓存，会话就绪后写入） */
@@ -954,6 +1057,21 @@ const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls", "todo_write", "pl
 const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）
+
+/** P64：worker 侧审批扩展——readonly 档写/执行全拒（权限继承父会话）；其余档位危险命令拒（worker 无 UI 无法确认），写文件与普通命令按角色白名单直通 */
+function workerApprovalExtension() {
+	return (pi) => {
+		pi.on("tool_call", async (event) => {
+			const tool = event.toolName;
+			if (READ_ONLY_TOOLS.has(tool)) return undefined;
+			const cmd = String(event.input?.command ?? "");
+			const risky = EXEC_TOOLS.has(tool) && RISKY.some((re) => re.test(cmd));
+			if (APPROVAL.mode === "readonly") return { block: true, reason: "主会话处于只读档位，子代理禁止写文件/执行命令。" };
+			if (risky) return { block: true, reason: `子代理无 UI 无法确认危险命令：${cmd.slice(0, 100)}。请在主会话中执行。` };
+			return undefined; // auto-edit/goal/full-auto：角色白名单内直通
+		});
+	};
+}
 
 function approvalExtension(hostRef) {
 	return (pi) => {

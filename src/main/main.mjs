@@ -15,6 +15,7 @@ import { createAgentProxy } from "./agent-proxy.mjs"; // P43：AgentHost 实例�
 import { getAgentDir } from "@earendil-works/pi-coding-agent"; // P47 设置文件定位
 import { cleanupExpired, sandboxRoot } from "./workspace-store.mjs";
 import { SessionIndex } from "./sessions-index.mjs";
+import { detectImportSources, importAllClaude } from "./session-import.mjs"; // P64⑧ 外部会话导入
 import { ensureShellEnv } from "./shell-env.mjs";
 import { initUpdater, checkUpdate, downloadUpdate, installUpdate, openUpdaterConfig, getSnapshot, UPDATER_CFG, feedConfigured } from "./updater.mjs";
 import { getConfig, saveProvider, deleteProvider, saveKey, testEndpoint, LOCAL_PRESETS } from "./config-store.mjs";
@@ -483,6 +484,13 @@ app.whenReady().then(async () => {
 		if (!p.endsWith(".jsonl") || !p.includes(path.join(".pi", "agent", "sessions"))) throw new Error("非法会话路径");
 		await shell.trashItem(p); // 移入系统回收站，可恢复
 		return true;
+	});
+	// P64⑧：外部会话导入（Claude Code 起步）
+	ipcMain.handle("sessions:import-scan", () => detectImportSources());
+	ipcMain.handle("sessions:import-do", (_e, kind) => {
+		if (String(kind) !== "claude-code") throw new Error("暂不支持该来源");
+		// 索引不用手动同步：sessions:search 每次都 syncRoot，导入的会话下次搜索自动可见
+		return importAllClaude();
 	});
 	ipcMain.handle("shell:open-external", (_e, url) => {
 		const u = String(url ?? "");

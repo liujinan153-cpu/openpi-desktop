@@ -2,6 +2,15 @@
 
 用户视角的里程碑记录；实施细节与踩坑见 `PROGRESS.md`。
 
+## 0.53.0（2026-09-16）
+
+- **P64 第三批（PLAN-P62-P64.md 收官）**：
+  - **并行 worker + 多角色**：subagent 升级为可批量派发的后台 worker——`subagent({batch:[{prompt,task,role}]})` 一次派多个（每父上限 4），真并行执行；**角色系统**：explore（只读调研）/ coder（写改码+命令）/ tester（跑测试）/ reviewer（对抗审查）四预设，各自工具白名单+角色提示；readonly 档下降级为纯只读（权限继承父会话）
+  - **worker 命令工具 run_cmd**：替代内置 bash 给 tester/coder（危险命令正则拒绝，spawnSync 同步拿全 stdout/stderr）
+  - **结论自动回喂**：worker 完成后结论自动推送进主会话（AI 无需轮询，派发后可先干别的）
+  - **会话导入**：侧栏新增导入按钮——一键把 **Claude Code** 的本地会话（~/.claude/projects）转成 OpenPi 会话，出现在列表可回看/可搜索/可续聊；幂等导入（重复点不会产生副本）；Codex/OpenCode 后续批
+- 坐坑 #117：**worker 会话阻塞等待会卡死主会话**——tool execute 内 await 子 LLM 流（哪怕包一层 Promise.all）会触发 SDK 轮转竞态，主会话 tool result 后不再回喂；**后台跑 + 完成后 prompt(streamingBehavior:"followUp") 注入**是唯一稳定形态；**内置 bash 不能给 worker 会话**（激活即卡死），用自定义 run_cmd 替代
+
 ## 0.52.0（2026-09-16）
 
 - **P63 第二批**（PLAN-P62-P64.md）：

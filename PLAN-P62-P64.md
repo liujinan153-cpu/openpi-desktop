@@ -10,7 +10,7 @@
 |---|---|---|
 | **P62（0.51.0）** | ① repo map 自动注入 ② ast-grep 结构化编辑 ③ 测试自动跑 | 编程 5 条中的三个轻量项 |
 | **P63（0.52.0）** | ④ LSP 实时诊断 ⑤ Goal 模式 | 编程最重一项 + 工作流 |
-| **P64（0.53.0）** | ⑥ 并行 worker（Session Orchestrator）⑦ 多角色并行（coder/tester/reviewer）⑧ 会话导入 | 工作流三件套（⑥是⑦的前置） |
+| **P64（0.53.0）✅ 已发布** | ⑥ 并行 worker（Session Orchestrator）⑦ 多角色并行（coder/tester/reviewer/explore）⑧ 会话导入（Claude Code） | 工作流三件套（⑥是⑦的前置） |
 
 ---
 
@@ -47,17 +47,15 @@
 
 ## P64：并行工作流三件套
 
-### ⑥ 并行 worker（Session Orchestrator 取经）
-- 子代理升级为可观察的持久 worker：spawn/查询/等待/接受报告/取消；每 worker 独立会话文件可回看
-- 上限护栏（如每父 4 个、全局 16 个）；权限继承父会话
+### ⑥⑦ 实施记录（完成于 0.53.0）
+- **形态与计划不同**：#117 实锤 tool execute 内 await 子 LLM 流必卡死主会话（Promise.all 包装即触发）——放弃「spawn/查询/等待」手动收结果，改为 **batch 派发 + 后台跑 + 完成后 prompt(streamingBehavior:"followUp") 自动回喂**；每 worker 独立 inMemory 会话（零文件残留）；护栏每父 4
+- **角色**：explore（只读基座）/ coder（+write/edit/run_cmd）/ tester（+run_cmd）/ reviewer（无额外），各带角色前缀提示；readonly 档降级纯只读
+- **run_cmd**：内置 bash 不能给 worker 会话（激活即卡死）——自定义 execFileSync/shell 工具，RISKY 正则拒绝危险命令
 
-### ⑦ 多角色并行（依赖⑥）
-- 预设三角色编排：coder 改码 / tester 跑验证 / reviewer 对抗审查，结论互相咬合
-- 本质是 ⑥ + 角色系统提示模板 + 编排工具
-
-### ⑧ 会话导入（截流竞品用户）
-- 读 Claude Code / Codex / OpenCode / 官方 pi 的本地会话格式（JSONL 逆向），转成 OpenPi 会话列表展示（只读回看起步，可续聊为进阶）
-- 难点：各家格式差异 + 内容映射（tool_use/image part）
+### ⑧ 实施记录（完成于 0.53.0）
+- Claude Code（~/.claude/projects）起步，官方 pi 同源零成本；Codex/OpenCode 检测留后续
+- session-import.mjs：解析→转 pi 原生格式落盘 sessions/<slug>--imported/，listSessions 天然可见；幂等（同源文件 hash）
+- UI：侧栏 tab 条导入按钮；隔离：PI_HOME（源）+ OPENPI_SESSIONS_ROOT（落盘）
 
 ## 发布纪律
 - 每批独立版本 + fast 发布；**每两批跑一次 e2e-all 全量**（#114 教训）

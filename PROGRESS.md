@@ -2,6 +2,22 @@
 
 > 方案总纲见 `E:/pi2/PI_DESKTOP_PLAN.md`
 
+## P64：并行工作流三件套 ✅（2026-09-16，随 0.53.0 发布）
+
+### ⑥⑦ 并行 worker + 多角色
+- **#117（本轮最大坑，三层坑）**：
+  1. **tool execute 内 await 子 LLM 流必卡死主会话**——tool result 后主会话不再回喂（第二轮 LLM 请求永不到 mock）。对照实验实锤：同工具同参数，**直接 await 通 / `Promise.all([p])` 挂**——SDK 轮转对 microtask 时序敏感，多一层 then 就翻转。绕开：**后台跑 + worker 完成后 `session.prompt(结论, {streamingBehavior:"followUp"})` 自动回喂**——结论作为 user 消息注入，AI 派发后可先干别的，无需轮询
+  2. **followUp 队列不自唤醒**：`followUpQueue.drain()` 只在 agent loop 收尾时消费，loop 已退出则入队无人消费；并发 prompt 撞重入保护（"Agent is already processing"）时错误消息明示解法——**始终带 `{streamingBehavior:"followUp"}`**
+  3. **内置 bash 不能给 worker 会话**（tools 白名单含 "bash" 激活即卡死主会话）——自定义 **run_cmd** 替代（execFileSync shell:true；RISKY 正则拒绝；spawnSync 拿全 stdout/stderr——execFileSync 异常对象经 SDK 序列化后 message/stdout 全空，诊断无门）
+- **形态**：`subagent({batch:[{prompt,task,role}]})` 一次派多（每父上限 4），立即返回派发确认；WORKER_ROLES 四角色（explore/coder/tester/reviewer）各带 extraTools 白名单+角色前缀；readonly 档降级纯只读（权限继承父会话）；worker 会话 inMemory 零残留、同 agentDir/modelRuntime（#99）
+- e2e-p64 6/6：mock 按 worker 角色前缀路由（tester run_cmd 写盘铁证 + explore read），断言 followUp 注入的结论含双方输出+role 标注
+
+### ⑧ 会话导入
+- **session-import.mjs**：Claude Code（~/.claude/projects/*.jsonl）→ 解析（text 对话为主，isMeta/tool_use/thinking/坏行滤）→ 转 pi 原生格式落 `sessions/<slug>--imported/` → listSessions 天然可见；**幂等**（目标文件名含源路径 hash，二次导入 skipped）；首行 head 带 openpiImported 标记
+- **UI**：侧栏 tab 条「⬇」按钮 → detectImportSources 探测 → miniConfirm → 导入 → sysline 统计 → 列表/回看/搜索全通
+- **e2e 隔离坑**：USERPROFILE 覆写会让 **Electron 静默死**（无输出无 CDP）——用 **PI_HOME**（源 ~/.claude）+ **OPENPI_SESSIONS_ROOT**（落盘根，main.mjs 早有此 env）双 env 隔离，零污染真实 HOME
+- e2e-p64b 6/6（连跑 2 次绿）+ unit-p64b 4 断言（探测/解析过滤/幂等/落盘格式）
+
 ## P38.7：办公技能一劳永逸（去安装化）✅（2026-09-14，随 0.34.2 发布）
 
 ## P52：内置浏览器控制 ✅（2026-09-15，随 0.42.0 发布）

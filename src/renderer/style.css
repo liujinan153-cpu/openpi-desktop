@@ -585,6 +585,8 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 }
 .side-tabs button:hover { color: var(--text); }
 .side-tabs button.on { background: var(--bg4); color: var(--text); }
+.side-tabs #btn-import { flex: none; padding: 5px 8px; opacity: .65; }
+.side-tabs #btn-import:hover { opacity: 1; }
 /* 置顶图钉 */
 .s-item .pin { flex: none; font-size: 10px; }
 /* 当前会话标题 tab */
