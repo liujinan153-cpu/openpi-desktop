@@ -872,3 +872,11 @@ P1 最后一项：pi SDK 无 MCP 客户端，用 extensions 机制自建桥，Ag
 **新增踩坑**
 - **#119 e2e mock 一次性发全文 = 流式渲染盲区**：mock 必须「分块慢发」（≥2 块、300ms 间隔）才能测出渐进渲染；同理折叠态 UI 会把「功能正常」藏成「体感坏了」——报障先实测事件链路再查 UI 呈现
 - bash PATH 被微信开发者工具 node v16 抢占（#93 家族再现）——跑脚本一律显式 node 路径
+
+## P67（0.56.0）UI 第二波：minimap 对话轨道 + 设置全局搜索（2026-09-16）
+
+- **minimap**：index.html `#chat` 外包 `#chat-wrap`（relative），`#minimap`（segs+vp）绝对定位右缘不随内容滚；app.js MutationObserver(250ms 节流) 重建 segments（getBoundingClientRect 算比例，按 .user/.assistant/.tool/.sys 着色），scroll 同步视口框，mousedown+mousemove 按比例跳转；scrollHeight-clientHeight ≤ 60 自动隐藏。锚点 `#chat` 不受影响
+- **设置搜索**：`#settings-search` + `#settings-search-pop` 弹层；每次 keystroke 重建索引（5 个 tab pane + 直接子级卡片 `div[id$='-card']`/cu-card/kv-list/form-grid/preset-grid）；结果点击 → tab click 切换 + scrollIntoView + flash-hl 闪烁动画（1.8s）；↑↓/Enter/Esc；blur 200ms 后收弹层
+- e2e-p67 8/8（长回复撑滚动条 → minimap segs≥4、vp 可见、点击跳转 scrollTop 0→659、搜 mcp 跳 skills+mcp-card 高亮、搜密钥 Enter 跳 keys、无命中空态）
+- **e2e 教训**：断言「点击跳转」前必须先把 scrollTop 归零（appendText 后 scrollBottom 已把视图拉到底，点 90% 处反而是向上跳）；弹层多结果时断言要选中目标 title 的条目而非盲点第一条
+- 全角弯引号 typo（"…”）导致 syntax error——node --check 抓住，写完必查

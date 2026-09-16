@@ -41,7 +41,11 @@
 				<button id="chat-tab-close" title="结束当前会话，开新会话"><i data-lucide="x"></i></button>
 			</div>
 
-			<main id="chat"></main>
+			<!-- P67：chat-wrap（relative）承载 minimap 对话轨道（不随内容滚动） -->
+			<div id="chat-wrap">
+				<main id="chat"></main>
+				<div id="minimap" hidden><div id="minimap-segs"></div><div id="minimap-vp" hidden></div></div>
+			</div>
 
 			<footer id="composer">
 				<!-- 工作区选择器（ZCode 式）：搜索 / 最近项目 / 打开文件夹 / 不在项目中工作 -->
@@ -287,6 +291,12 @@
 				<span>模型与供应商</span>
 				<div class="spacer"></div>
 				<button id="btn-settings-close" class="icon-btn"><i data-lucide="x"></i></button>
+			</div>
+			<!-- P67：设置全局搜索（跨 5 个 tab 索引卡片/表单，结果点击跳转+高亮） -->
+			<div id="settings-search-row">
+				<i data-lucide="search"></i>
+				<input id="settings-search" class="input" placeholder="搜索设置：密钥 / 供应商 / MCP / Hooks / 生图 / 更新…" autocomplete="off" />
+				<div id="settings-search-pop" hidden></div>
 			</div>
 			<div class="tabs">
 				<button class="tab active" data-tab="keys">API 密钥</button>

@@ -3467,4 +3467,133 @@ function refreshChatTab() {
 $("chat-tab-close").addEventListener("click", newSession);
 
 /* P46：初始图标渲染（app.js 在 body 末尾加载，DOM 已就绪） */
+/* P67：minimap 对话轨道 + 设置全局搜索（模块见文末） */
 refreshIcons();
+
+/* ================= P67-1：minimap 对话轨道 ================= */
+const minimap = $("minimap"), mmSegs = $("minimap-segs"), mmVp = $("minimap-vp");
+let mmRebuildTimer = null, mmDragging = false;
+const mmSegClass = (el) => {
+	if (el.classList.contains("user")) return "t-user";
+	if (el.classList.contains("assistant")) return el.querySelector(".tool, .work") ? "t-tool" : "t-assistant";
+	return "t-sys";
+};
+function mmRebuild() {
+	mmRebuildTimer = null;
+	if (!chat || chat.hidden) { minimap.hidden = true; return; }
+	const scrollable = chat.scrollHeight > chat.clientHeight + 60;
+	minimap.hidden = !scrollable;
+	if (!scrollable) return;
+	mmSegs.innerHTML = "";
+	const chatRect = chat.getBoundingClientRect();
+	const H = chat.scrollHeight;
+	for (const el of chat.children) {
+		if (el.hidden || el.classList.contains("empty-hide")) continue;
+		const r = el.getBoundingClientRect();
+		if (r.height < 4) continue;
+		const top = ((r.top - chatRect.top + chat.scrollTop) / H) * 100;
+		const h = Math.max(0.6, (r.height / H) * 100);
+		if (top >= 100) continue;
+		const seg = document.createElement("div");
+		seg.className = "mm-seg " + mmSegClass(el);
+		seg.style.top = top + "%";
+		seg.style.height = h + "%";
+		seg.title = (el.querySelector(".who")?.textContent ?? el.textContent ?? "").trim().slice(0, 60);
+		mmSegs.appendChild(seg);
+	}
+	mmVpUpdate();
+}
+function mmVpUpdate() {
+	if (minimap.hidden) return;
+	mmVp.hidden = false;
+	mmVp.style.top = (chat.scrollTop / chat.scrollHeight) * 100 + "%";
+	mmVp.style.height = Math.max(4, (chat.clientHeight / chat.scrollHeight) * 100) + "%";
+}
+function mmSchedule() { if (!mmRebuildTimer) mmRebuildTimer = setTimeout(mmRebuild, 250); }
+new MutationObserver(mmSchedule).observe(chat, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+chat.addEventListener("scroll", mmVpUpdate, { passive: true });
+window.addEventListener("resize", mmSchedule);
+/* 点击/拖动轨道 → 按比例跳转 */
+const mmJump = (e) => {
+	const rect = minimap.getBoundingClientRect();
+	const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+	chat.scrollTop = ratio * (chat.scrollHeight - chat.clientHeight);
+};
+minimap.addEventListener("mousedown", (e) => { mmDragging = true; mmJump(e); e.preventDefault(); });
+window.addEventListener("mousemove", (e) => { if (mmDragging) mmJump(e); });
+window.addEventListener("mouseup", () => { mmDragging = false; });
+
+/* ================= P67-2：设置全局搜索 ================= */
+const ssInput = $("settings-search"), ssPop = $("settings-search-pop");
+let ssItems = [], ssIdx = 0;
+const ssTabs = () => [...document.querySelectorAll("#settings .tab")];
+function ssIndex() {
+	const idx = [];
+	for (const tab of ssTabs()) {
+		const pane = $("tab-" + tab.dataset.tab);
+		if (!pane) continue;
+		idx.push({ tab: tab.dataset.tab, tabLabel: tab.textContent.trim(), el: pane, title: tab.textContent.trim(), text: pane.textContent.replace(/\s+/g, " ") });
+	}
+	for (const card of document.querySelectorAll("#settings .tab-pane > div[id$='-card'], #settings .tab-pane > .cu-card, #settings .tab-pane > .kv-list, #settings .tab-pane > .form-grid, #settings .tab-pane > .preset-grid")) {
+		const pane = card.closest(".tab-pane");
+		if (!pane) continue;
+		const tabBtn = ssTabs().find((t) => "tab-" + t.dataset.tab === pane.id);
+		idx.push({ tab: pane.id.replace("tab-", ""), tabLabel: tabBtn?.textContent.trim() ?? "", el: card, title: card.querySelector("b")?.textContent?.trim() ?? card.id, text: card.textContent.replace(/\s+/g, " ") });
+	}
+	return idx;
+}
+function ssSnip(text, q) {
+	const at = text.toLowerCase().indexOf(q);
+	if (at < 0) return text.slice(0, 60);
+	return (at > 0 ? "…" + text.slice(Math.max(0, at - 16), at) : "") + text.slice(at, at + 46) + "…";
+}
+function ssRender(q) {
+	q = q.trim().toLowerCase();
+	if (!q) { ssPop.hidden = true; ssItems = []; return; }
+	const matches = ssIndex().filter((it) => (it.title + " " + it.text).toLowerCase().includes(q)).slice(0, 14);
+	ssItems = matches;
+	ssIdx = 0;
+	ssPop.innerHTML = "";
+	if (!matches.length) {
+		ssPop.innerHTML = `<div class="ss-empty">没有匹配的设置项</div>`;
+	} else {
+		matches.forEach((it, i) => {
+			const b = document.createElement("button");
+			b.className = "ss-item" + (i === 0 ? " active" : "");
+			b.innerHTML = `<span class="ss-tab"></span><span class="ss-title"></span><span class="ss-snip"></span>`;
+			b.querySelector(".ss-tab").textContent = it.tabLabel;
+			b.querySelector(".ss-title").textContent = it.title;
+			b.querySelector(".ss-snip").textContent = ssSnip(it.text, q);
+			b.addEventListener("click", () => ssGo(it));
+			ssPop.appendChild(b);
+		});
+	}
+	ssPop.hidden = false;
+}
+function ssGo(it) {
+	ssTabs().find((t) => t.dataset.tab === it.tab)?.click();
+	ssPop.hidden = true;
+	ssInput.value = "";
+	const el = it.el;
+	setTimeout(() => {
+		el.scrollIntoView({ block: "center", behavior: "smooth" });
+		el.classList.remove("flash-hl");
+		void el.offsetWidth; // 重启动画
+		el.classList.add("flash-hl");
+		setTimeout(() => el.classList.remove("flash-hl"), 1900);
+	}, 60);
+}
+ssInput.addEventListener("input", () => ssRender(ssInput.value));
+ssInput.addEventListener("keydown", (e) => {
+	if (ssPop.hidden) return;
+	const items = [...ssPop.querySelectorAll(".ss-item")];
+	if (!items.length) return;
+	if (e.key === "ArrowDown") { e.preventDefault(); ssIdx = Math.min(ssIdx + 1, items.length - 1); }
+	else if (e.key === "ArrowUp") { e.preventDefault(); ssIdx = Math.max(ssIdx - 1, 0); }
+	else if (e.key === "Enter") { e.preventDefault(); ssItems[ssIdx] && ssGo(ssItems[ssIdx]); return; }
+	else if (e.key === "Escape") { ssPop.hidden = true; ssInput.value = ""; return; }
+	else return;
+	items.forEach((x, i) => x.classList.toggle("active", i === ssIdx));
+	items[ssIdx]?.scrollIntoView({ block: "nearest" });
+});
+ssInput.addEventListener("blur", () => setTimeout(() => { ssPop.hidden = true; }, 200));
