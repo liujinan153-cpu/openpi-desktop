@@ -2068,6 +2068,12 @@ $("btn-check-updates").addEventListener("click", async () => {
 /* ---- 审批模式 ---- */
 $("approval-select").addEventListener("change", async (e) => {
 	try {
+		if (e.target.value === "goal") {
+			// P63：目标模式先填目标+验收标准，确认后才真正切换
+			$("goal-bar").hidden = false;
+			$("goal-text").focus();
+			return; // 等 btn-goal-start 确认后再切
+		}
 		const real = await window.openpi.setApprovalMode(e.target.value);
 		if (typeof real === "string" && real !== e.target.value) e.target.value = real; // 主进程纠偏则回滚显示
 		const cur = e.target.value;
@@ -2084,6 +2090,25 @@ $("approval-select").addEventListener("change", async (e) => {
 		e.target.value = state.lastMode || "auto-edit"; // 失败回滚 select，保持与主进程一致
 		addSysLine(`切换失败: ${err.message ?? err}`, true);
 	}
+});
+
+/* ---- P63：目标模式输入条 ---- */
+$("btn-goal-start").addEventListener("click", async () => {
+	const text = $("goal-text").value.trim();
+	if (!text) { addSysLine("请先填写目标与验收标准再锁定", true); return; }
+	try {
+		await window.openpi.setApprovalMode("goal", text);
+		$("goal-bar").hidden = true;
+		state.lastMode = "goal";
+		addSysLine("🎯 目标模式已锁定：AI 将自主迭代到验收标准全部满足（危险命令仍会请求确认）");
+	} catch (err) {
+		$("approval-select").value = state.lastMode || "auto-edit";
+		addSysLine(`切换失败: ${err.message ?? err}`, true);
+	}
+});
+$("btn-goal-cancel").addEventListener("click", () => {
+	$("goal-bar").hidden = true;
+	$("approval-select").value = state.lastMode || "auto-edit";
 });
 
 /* ---- P35：任务清单条 + 计划批准 ---- */

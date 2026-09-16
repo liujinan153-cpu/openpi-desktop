@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+import ts from "typescript"; // P63 静态导入（worker 里 async custom tool + 动态 import 有竞态：tool result 不回传致 agent loop 卡死）
 
 let wsDir = null; // 工作目录（agent-host 注入；ctx.cwd 是进程 cwd 不可靠，见 #105）
 let agentDir = null; // 沙箱 agentDir（hooks checker 脚本落盘处）
@@ -314,6 +315,61 @@ export const codeIntelTools = [
 				}
 			}
 			return out(`测试通过：\n${String(r).slice(-3000)}`);
+		},
+	},
+	{
+		name: "lsp_diag",
+		label: "语义诊断",
+		description:
+			"对 JS/TS/JSX/TSX 文件做语义级诊断（P63，内嵌 TypeScript 编译器）：类型错误、不存在的导出/属性、参数个数不对等。改代码后配合 run_tests 用：run_tests 证行为，lsp_diag 证类型。只报 Error 级（Warning/提示忽略）避免噪音；Python 文件不支持（用 code_diag）。首次调用需编译项目（数秒）属正常。",
+		promptSnippet: "- lsp_diag: JS/TS 语义级诊断（类型错误/导出缺失），run_tests 的好搭档",
+		parameters: {
+			type: "object",
+			properties: { path: { type: "string", description: "要诊断的文件路径（相对工作区或绝对）" } },
+			required: ["path"],
+		},
+		execute(_id, params = {}) {
+			try {
+				if (!params.path) return out("缺少参数（path 必填）", false);
+				const abs = resolveInWs(String(params.path));
+				if (!fs.existsSync(abs)) return out(`文件不存在：${abs}`, false);
+				const ext = path.extname(abs).toLowerCase();
+				if (![".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx"].includes(ext))
+					return out(`lsp_diag 暂只支持 JS/TS（收到 ${ext || abs}）。Python/其他语言用 code_diag 做语法检查`, false);
+				// 找项目 tsconfig（有则继承编译选项；无则用宽松默认，allowJs+checkJs）
+				const wsRoot = wsDir || path.dirname(abs);
+				const configPath = ts.findConfigFile(wsRoot, ts.sys.fileExists, "tsconfig.json");
+				let compilerOptions;
+				const rootNames = [abs];
+				if (configPath) {
+					const cfg = ts.getParsedCommandLineOfConfigFile(configPath, { skipLibCheck: true }, ts.sys);
+					compilerOptions = { ...cfg?.options, noEmit: true, skipLibCheck: true };
+				} else {
+					compilerOptions = {
+						allowJs: true, checkJs: false, noEmit: true, skipLibCheck: true,
+						target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ESNext,
+						moduleResolution: ts.ModuleResolutionKind.NodeJs, esModuleInterop: true,
+						resolveJsonModule: true, jsx: ext === ".tsx" || ext === ".jsx" ? ts.JsxEmit.ReactJSX : undefined,
+					};
+				}
+				const program = ts.createProgram(rootNames, compilerOptions);
+				const sf = program.getSourceFile(abs);
+				if (!sf) return out(`文件未被编译器加载：${abs}`, false);
+				const all = [...program.getSyntacticDiagnostics(sf), ...program.getSemanticDiagnostics(sf)];
+				const errs = all.filter((d) => d.category === ts.DiagnosticCategory.Error); // 只报 Error 级，Warning 忽略防噪音
+				if (!errs.length) return out(`✓ 语义诊断通过（${path.basename(abs)}，Error 级 0 条）`, true);
+				const lines = errs.slice(0, 30).map((d) => {
+					const { line, character } = sf.getLineAndCharacterOfPosition(d.start ?? 0);
+					const msg = ts.flattenDiagnosticMessageText(d.messageText, "\n").split("\n")[0];
+					return `${line + 1}:${character + 1} TS${d.code} ${msg}`;
+				});
+				return out(
+					`发现 ${errs.length} 条语义错误${errs.length > 30 ? "（仅列前 30）" : ""}：\n${lines.join("\n")}\n\n修复后建议 run_tests 验证行为。`,
+					false,
+				);
+			} catch (e) {
+				return out(`lsp_diag 异常：${String(e.message ?? e).slice(0, 300)}`, false);
+			}
 		},
 	},
 ];

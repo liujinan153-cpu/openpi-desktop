@@ -56,6 +56,17 @@
 					<div id="todo-list"></div>
 				</div>
 				<!-- P35：计划模式批准条（P35.1 升级为结构化计划卡片） -->
+				<!-- P63：目标模式输入条 -->
+				<div id="goal-bar" hidden>
+					<div class="plan-card">
+						<div class="plan-head"><i data-lucide="target"></i> 目标模式：描述目标与验收标准</div>
+						<textarea id="goal-text" rows="4" placeholder="例：把 utils.js 里的日期函数全部迁移到 date-utils.js，验收：① 全部调用点已迁移 ② npm test 通过 ③ 无残留 import"></textarea>
+						<div class="plan-actions">
+							<button id="btn-goal-start" class="btn primary small"><i data-lucide="rocket"></i> 锁定目标开跑</button>
+							<button id="btn-goal-cancel" class="btn ghost small">取消</button>
+						</div>
+					</div>
+				</div>
 				<div id="plan-bar" hidden>
 					<div class="plan-card">
 						<div class="plan-head"><i data-lucide="clipboard-list"></i> 执行计划<span id="plan-steps-count" class="dim small"></span></div>
@@ -82,10 +93,11 @@
 						<button id="btn-workspace" class="chip" title="选择工作区文件夹"><i data-lucide="folder"></i> <span id="workspace-label">选择文件夹</span></button>
 						<button id="chip-branch" class="chip" hidden title="当前分支（点击打开 Git 面板）"><i data-lucide="git-branch"></i> <span id="branch-label"></span></button>
 						<button id="chip-agents" class="chip" hidden title="本会话加载的 AGENTS.md 指令文件（点击查看）"><i data-lucide="scroll-text"></i> <span id="agents-label"></span></button>
-						<select id="approval-select" class="chip chip-select" title="审批模式：只读=所有修改都需确认；自动编辑=改文件自动、危险命令确认；全自动=全部放行">
+						<select id="approval-select" class="chip chip-select" title="审批模式：只读=所有修改都需确认；自动编辑=改文件自动、危险命令确认；全自动=全部放行；目标模式=锁定目标+验收标准，自主迭代到验收通过">
 							<option value="readonly">只读</option>
 							<option value="auto-edit" selected>自动编辑</option>
 							<option value="full-auto">全自动</option>
+							<option value="goal">目标模式</option>
 							<option value="plan">计划模式</option>
 						</select>
 						<button id="allow-btn" class="chip" title="命令允许清单：只读/自动编辑档位下，命中清单且非危险的命令免确认直接执行（对齐 Cursor allowlist）"><i data-lucide="settings"></i> 允许清单</button>

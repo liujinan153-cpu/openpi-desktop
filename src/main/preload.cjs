@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld("openpi", {
 	newSession: (opts) => ipcRenderer.invoke("agent:new-session", opts),
 	newWindow: () => ipcRenderer.invoke("window:new"),
 	checkUpdates: () => ipcRenderer.invoke("agent:check-updates"),
-	setApprovalMode: (mode) => ipcRenderer.invoke("agent:approval-mode", mode),
+	setApprovalMode: (mode, goalText) => ipcRenderer.invoke("agent:approval-mode", mode, goalText),
 	setApprovalAllowlist: (list) => ipcRenderer.invoke("agent:approval-allowlist", list),
 	getApprovalMode: () => ipcRenderer.invoke("agent:get-approval-mode"),
 	gitStatus: () => ipcRenderer.invoke("git:status"),

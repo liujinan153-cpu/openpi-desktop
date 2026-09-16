@@ -132,7 +132,7 @@ const lastText = (anchor) => ev(`(async () => {
 	for (let i = 0; i < 20; i++) { if (btn() === "■") break; await new Promise(r => setTimeout(r, 500)); }
 	for (let i = 0; i < 240; i++) { await new Promise(r => setTimeout(r, 500)); if (btn() !== "■") break; }
 	const asst = [...document.querySelectorAll(".msg.assistant")].filter(m => m.textContent.includes("${anchor}"));
-	if (!asst.length) return "[EMPTY] btn=" + btn() + " asst气泡=" + document.querySelectorAll(".msg.assistant").length;
+	if (!asst.length) return "[EMPTY] btn=" + btn() + " 气泡:" + [...document.querySelectorAll(".msg.assistant")].map((m,i)=>i+":"+m.textContent.slice(0,50)).join(" | ");
 	return asst.at(-1).textContent.slice(0, 800);
 })()`);
 

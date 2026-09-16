@@ -1,6 +1,6 @@
 {
   "name": "openpi-desktop",
-  "version": "0.51.0",
+  "version": "0.52.0",
   "private": true,
   "type": "module",
   "description": "OpenPi Desktop - desktop agent harness powered by pi coding agent SDK",
@@ -16,6 +16,7 @@
     "@earendil-works/pi-coding-agent": "0.85.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^13.0.3",
+    "chrome-remote-interface": "^0.34.0",
     "dompurify": "^3.4.15",
     "echarts": "^6.1.0",
     "electron-updater": "^6.8.9",
@@ -24,8 +25,8 @@
     "mammoth": "^1.12.3",
     "marked": "^18.0.13",
     "typebox": "^1.3.7",
-    "xlsx": "^0.18.5",
-    "chrome-remote-interface": "^0.34.0"
+    "typescript": "^5.7.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",

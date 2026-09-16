@@ -386,9 +386,11 @@ export class AgentHost {
 		if (r) r(value);
 	}
 
-	setApprovalMode(mode) {
-		if (!["readonly", "auto-edit", "full-auto", "plan"].includes(mode)) throw new Error("未知审批档位");
+	setApprovalMode(mode, goalText) {
+		if (!["readonly", "auto-edit", "full-auto", "plan", "goal"].includes(mode)) throw new Error("未知审批档位");
 		APPROVAL.mode = mode;
+		// goalText 必须存 APPROVAL 上（approvalExtension/planPromptExtension 的 hostRef 就是这个对象，this 是 AgentHost 实例不互通）
+		if (mode === "goal" && goalText != null) APPROVAL.goalText = String(goalText).slice(0, 2000);
 		return APPROVAL.mode;
 	}
 
@@ -978,8 +980,8 @@ function approvalExtension(hostRef) {
 				return undefined;
 			}
 
-			// full-auto 护栏（P29）：普通命令直通（审计 auto-allow），危险命令仍强制确认且不记忆
-			if (mode === "full-auto") {
+			// full-auto/goal 护栏：普通命令直通（审计 auto-allow），危险命令仍强制确认且不记忆
+			if (mode === "full-auto" || mode === "goal") {
 				if (READ_ONLY_TOOLS.has(tool)) return undefined;
 				if (risky) {
 					auditLog(hostRef, tool, mode, "risk-confirm", cmd);
@@ -1074,7 +1076,17 @@ function planPromptExtension(hostRef) {
 				const vf = verificationSystemPrompt();
 				const memo = memorySystemPrompt();
 				const rm = repoMapSystemPrompt(event.cwd || hostRef.workspace || process.cwd()); // P62：工作区地图（带缓存）
-				const extra = (cp ? cp : "") + (vf ? vf : "") + (memo ? memo : "") + (rm ? rm : "");
+				// P63：目标模式注入（锁定目标+验收标准，自主迭代到验收通过）
+				const goal = hostRef.mode === "goal" && hostRef.goalText
+					? "\n\n## 目标模式（Goal Mode，当前生效）\n" +
+						"用户已锁定目标与验收标准，审批为全自动（危险命令仍会请求确认）。请自主迭代不要中途请示：\n" +
+						"- 用 todo_write 把目标拆成待办，逐项完成\n" +
+						"- 每完成一步用 run_tests / code_diag / lsp_diag / bash 自证，贴证据\n" +
+						"- 验收标准全部满足前不要停下：报告前先自查「验收清单逐条满足了吗？」，不满足就继续\n" +
+						"- 全部满足后输出验收对照表（标准 → 证据）再结束\n\n" +
+						"### 目标与验收标准\n" + hostRef.goalText
+					: "";
+				const extra = (cp ? cp : "") + (vf ? vf : "") + (memo ? memo : "") + (rm ? rm : "") + goal;
 				return extra ? { systemPrompt: event.systemPrompt + extra } : undefined;
 			}
 			return {

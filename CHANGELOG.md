@@ -2,7 +2,12 @@
 
 用户视角的里程碑记录；实施细节与踩坑见 `PROGRESS.md`。
 
-## 0.51.0（2026-09-16）
+## 0.52.0（2026-09-16）
+
+- **P63 第二批**（PLAN-P62-P64.md）：
+  - **lsp_diag 语义诊断**：内嵌 TypeScript 编译器（typescript 进 dependencies 随包分发），JS/TS/JSX/TSX 类型级错误（行列+TS码），只报 Error 级防噪音；与 run_tests 配套（行为自证+类型自证）
+  - **目标模式（Goal 档）**：审批第四档——锁定目标+验收标准，全自动审批（危险命令仍确认），系统提示注入验收清单约定，AI 自主迭代到验收通过输出对照表
+- 坐坑：worker 里 async custom tool + 动态 import 有竞态（tool result 不回传致 agent loop 卡死、时好时坏）——一律静态 import + 同步 execute；e2e 断言 mock 端变量而非渲染层气泡（流式渲染截取时机不稳定）
 
 - **P62 编程三件套**（PLAN-P62-P64.md 第一批）：
   - **repo map**：会话自动注入工作区地图（目录树+项目元信息，gitignore 感知、带缓存）——弱模型大仓库不迷路
