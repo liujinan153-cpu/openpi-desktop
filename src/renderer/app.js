@@ -330,7 +330,10 @@ function collapseTools(c) {
 
 function appendText(delta) {
 	if (!state.cur) newAssistantBubble();
-	state.cur.text += delta;
+	const c = state.cur;
+	// P66：正文来了 → 折叠思考条（流式期间思考条自动展开，见 appendThinking）
+	if (c.thinkingEl && c.thinkingEl.open) c.thinkingEl.open = false;
+	c.text += delta;
 	maybeDetectPreview(delta);
 	renderStreamingBody();
 	scrollBottom();
@@ -359,6 +362,9 @@ function appendThinking(delta) {
 	c.thinkingEl.querySelector(".content").textContent = c.thinkingText;
 	c.thinkingEl.querySelector(".tt").textContent = `思考过程 (${c.thinkingText.length} 字)`;
 	if (!c.bodyEl.contains(c.thinkingEl)) c.bodyEl.appendChild(c.thinkingEl);
+	// P66：思考流式期间自动展开——glm-5.2 thinking=high 先思考几十秒，折叠状态下正文空白，
+	// 体感是「没流式输出」。展开让思考文本实时滚动；正文首 delta 或结束时折叠（appendText/finalizeAssistant）。
+	if (!c.text) c.thinkingEl.open = true;
 	scrollBottom();
 }
 
@@ -368,6 +374,7 @@ function finalizeAssistant(msg) {
 	const c = state.cur;
 	state.cur = null;
 	c.cursor?.remove();
+	if (c.thinkingEl) c.thinkingEl.open = false; // P66：结束收起思考条
 	collapseTools(c);
 	let text = c.text;
 	if (!text && msg) text = extractText(msg.content);

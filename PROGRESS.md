@@ -851,3 +851,24 @@ P1 最后一项：pi SDK 无 MCP 客户端，用 extensions 机制自建桥，Ag
 14. electron-builder 在 GitHub 连接不稳时会 ETIMEDOUT，设 `ELECTRON_MIRROR` + `ELECTRON_BUILDER_BINARIES_MIRROR` 到 npmmirror 即可。
 15. Windows 下 `execFile("npm", …)` 找不到 npm.cmd，必须 `{shell:true}`。
 16. Electron 多窗口单例锁同 app 不同窗口正常共存；CDP 多窗口 E2E 需打标记（`window.__IS_A`）区分 page target。
+
+## P66（0.55.0）渐进流式 + 思考展开（2026-09-16）
+
+**用户报障**：AI 回答流式期间 UI 不实时更新，切会话（重放磁盘历史）才看到内容。
+
+**排查结论（全链路实测）**：
+1. **事件链路完全通畅**：慢流 mock（20 块 × 300ms）实测首块 t=600ms 上屏、每 300ms 渐进增长、message_update 全部到达渲染层——worker→proxy→渲染层→DOM 无任何过滤/丢失。e2e-p66 首版 4/4 绿
+2. **真实上游 SSE 正常**：直连 open.bigmodel.cn glm-5.2 实测 9.7s 内 84 个增量逐个到达（0.1~1.7s/个），但 **84 个全是 reasoning_content，text=0**——thinking=high 时 glm-5.2 先思考很久才出正文
+3. **根因 = 思考期 UX**：思考过程渲染在折叠的 `<details class="thinking">` 里，流式期间正文一直空白，唯一活信号是折叠条里涨字数——体感就是「没流式」；用户中途切走、回来任务早已跑完 → 误判「切会话才能看到」
+4. **测试盲区实锤**：此前所有 e2e mock 都把整段回复塞在一个 delta 里一次性发（36 套全绿但从未测过渐进流式）
+
+**修复**：
+- appendThinking：思考流式期间 `c.thinkingEl.open = true`（正文 `c.text` 为空时），实时滚动
+- appendText：正文首 delta 到达 → thinking 条折叠；finalizeAssistant：结束折叠
+- style.css：`.thinking[open] > .content { max-height: 34vh; overflow-y: auto }` 长思考不撑爆气泡
+- e2e-p66 扩展为 8 thinking + 12 text 慢流，6/6 绿（①渐进文本 ②updates≥15 ③全文完整 ④思考自动展开+字数涨 ⑤正文/结束折叠）；e2e-all 36→37 套
+- 确认 pi-ai 会把 OpenAI 兼容 `reasoning_content` 转 thinking_delta（思考过程一直在事件流里）
+
+**新增踩坑**
+- **#119 e2e mock 一次性发全文 = 流式渲染盲区**：mock 必须「分块慢发」（≥2 块、300ms 间隔）才能测出渐进渲染；同理折叠态 UI 会把「功能正常」藏成「体感坏了」——报障先实测事件链路再查 UI 呈现
+- bash PATH 被微信开发者工具 node v16 抢占（#93 家族再现）——跑脚本一律显式 node 路径

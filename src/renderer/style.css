@@ -269,6 +269,8 @@ body {
 .thinking > summary:hover { background: var(--bg3); color: var(--text); }
 .thinking .content { color: var(--dim); font-size: 12.5px; padding: 8px 12px; margin-top: 4px;
 	border-left: 2px solid var(--violet); background: rgba(124,92,255,.05); border-radius: 0 8px 8px 0; white-space: pre-wrap; }
+/* P66：思考展开时限高滚动，长思考不撑爆气泡 */
+.thinking[open] > .content { max-height: 34vh; overflow-y: auto; }
 
 /* 工具卡 */
 .tool {
