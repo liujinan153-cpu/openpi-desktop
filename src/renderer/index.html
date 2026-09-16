@@ -27,6 +27,7 @@
 				<button id="btn-sidebar" class="icon-btn" title="收起/展开侧栏"><i data-lucide="panel-left"></i></button>
 				<div class="brand">OpenPi <span class="tag">Desktop</span></div>
 				<div class="spacer"></div>
+				<button id="btn-notif" class="icon-btn" title="通知中心（后台任务/子任务完成都会留痕）"><i data-lucide="bell"></i><span id="notif-badge" hidden></span></button>
 				<button id="btn-settings" class="icon-btn" title="模型与供应商设置"><i data-lucide="settings"></i></button>
 				<button id="btn-theme" class="icon-btn" title="切换亮/暗主题"><i data-lucide="moon" class="ic-dark"></i><i data-lucide="sun" class="ic-light"></i></button>
 				<button id="btn-dock" class="icon-btn" title="显示/隐藏侧边面板 (Ctrl+Alt+B)">▤</button>
@@ -495,6 +496,22 @@
 			</div>
 		</div>
 	</template>
+
+	<!-- P65：通知中心（渲染层收件箱：后台任务/子任务/异常事件留痕，OS 通知之外的持久层） -->
+	<div id="notif-panel" hidden>
+		<div class="np-head"><b>通知</b><div class="spacer"></div><button id="notif-readall" class="np-act">全部已读</button><button id="notif-clear" class="np-act">清空</button></div>
+		<div id="notif-list"></div>
+	</div>
+
+	<!-- P65：全局命令面板（Ctrl+K：命令/会话/设置一站式） -->
+	<div id="cmdk" hidden>
+		<div id="cmdk-mask"></div>
+		<div id="cmdk-card">
+			<input id="cmdk-input" placeholder="搜索命令、会话…（↑↓ 选择，回车执行）" autocomplete="off" />
+			<div id="cmdk-list"></div>
+		</div>
+	</div>
+
 	<script src="vendor/marked.min.js"></script>
 	<script src="vendor/purify.min.js"></script>
 	<script src="vendor/highlight.min.js"></script>

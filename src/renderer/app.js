@@ -869,6 +869,129 @@ async function resumeSession(file) {
 	}
 }
 
+/* ================= P65：通知中心（渲染层收件箱：留痕 + 未读徽标，OS 通知之外的持久层） ================= */
+const NOTIFS = []; // { ic, title, body, ts, unread }
+let notifPanelOpen = false;
+function pushNotif(ic, title, body = "") {
+	NOTIFS.unshift({ ic, title: String(title || "").slice(0, 80), body: String(body || "").slice(0, 120), ts: Date.now(), unread: true });
+	if (NOTIFS.length > 60) NOTIFS.length = 60; // 收件箱只留近 60 条
+	renderNotifs();
+}
+function nTimeAgo(ts) {
+	const s = Math.round((Date.now() - ts) / 1000);
+	return s < 60 ? "刚刚" : s < 3600 ? `${Math.floor(s / 60)} 分钟前` : s < 86400 ? `${Math.floor(s / 3600)} 小时前` : `${Math.floor(s / 86400)} 天前`;
+}
+function renderNotifs() {
+	const badge = $("notif-badge");
+	const unread = NOTIFS.filter((n) => n.unread).length;
+	badge.hidden = unread === 0;
+	badge.textContent = unread > 9 ? "9+" : unread;
+	if (!notifPanelOpen) return;
+	const list = $("notif-list");
+	if (!NOTIFS.length) {
+		list.innerHTML = `<div class="n-empty">暂无通知。后台任务、子任务完成与异常都会留在这里。</div>`;
+		return;
+	}
+	list.innerHTML = "";
+	for (const n of NOTIFS) {
+		const el = document.createElement("div");
+		el.className = "n-item" + (n.unread ? " unread" : "");
+		el.innerHTML = `<span class="n-ic"></span><div class="n-body"><div class="n-title"></div><div class="n-text"></div></div><span class="n-time"></span>`;
+		el.querySelector(".n-ic").textContent = n.ic;
+		el.querySelector(".n-title").textContent = n.title;
+		el.querySelector(".n-text").textContent = n.body;
+		el.querySelector(".n-time").textContent = nTimeAgo(n.ts);
+		el.addEventListener("click", () => { n.unread = false; renderNotifs(); });
+		list.appendChild(el);
+	}
+}
+function toggleNotifPanel(force) {
+	// force 语义：true=展开 / false=收起 / undefined=取反。面板 hidden=true 时取反应得展开（hidden→open）
+	notifPanelOpen = force ?? $("notif-panel").hidden;
+	$("notif-panel").hidden = !notifPanelOpen;
+	if (notifPanelOpen) { NOTIFS.forEach((n) => (n.unread = false)); renderNotifs(); }
+}
+$("btn-notif").addEventListener("click", () => toggleNotifPanel());
+$("notif-readall").addEventListener("click", () => { NOTIFS.forEach((n) => (n.unread = false)); renderNotifs(); });
+$("notif-clear").addEventListener("click", () => { NOTIFS.length = 0; renderNotifs(); });
+document.addEventListener("click", (e) => { // 点外面收起
+	if (notifPanelOpen && !e.target.closest("#notif-panel, #btn-notif")) toggleNotifPanel(false);
+});
+
+/* ================= P65：全局命令面板（Ctrl+K：命令 / 会话 / 设置一站式） ================= */
+const cmdk = $("cmdk"), cmdkInput = $("cmdk-input"), cmdkList = $("cmdk-list");
+let ckItems = [], ckIdx = 0;
+function cmdkCommands() {
+	return [
+		{ ic: "✏️", label: "新建会话", hint: "Ctrl+N", run: () => newSession() },
+		{ ic: "🌓", label: "切换亮 / 暗主题", hint: "", run: () => $("btn-theme").click() },
+		{ ic: "⚙️", label: "打开设置", hint: "", run: () => $("btn-settings").click() },
+		{ ic: "🗂", label: "切换侧栏", hint: "", run: () => $("btn-sidebar").click() },
+		{ ic: "📄", label: "文件面板", hint: "Ctrl+P", run: () => showDock("files") },
+		{ ic: "🔍", label: "审核面板", hint: "Ctrl+Shift+G", run: () => toggleDock("review") },
+		{ ic: "🖥", label: "预览面板", hint: "Ctrl+T", run: () => toggleDock("preview") },
+		{ ic: "🔔", label: "打开通知中心", hint: "", run: () => toggleNotifPanel(true) },
+	];
+}
+function openCmdk() {
+	cmdk.hidden = false;
+	cmdkInput.value = "";
+	renderCmdk("");
+	cmdkInput.focus();
+}
+function closeCmdk() { cmdk.hidden = true; }
+function renderCmdk(q) {
+	const ql = q.trim().toLowerCase();
+	const cmds = cmdkCommands().filter((c) => !ql || c.label.toLowerCase().includes(ql));
+	const sess = (state.sessions || [])
+		.filter((s) => !ql || (s.preview || "").toLowerCase().includes(ql) || (s.cwd || "").toLowerCase().includes(ql))
+		.slice(0, 8);
+	ckItems = [
+		...cmds.map((c) => ({ ...c, group: "命令" })),
+		...sess.map((s) => ({ ic: "💬", label: s.preview?.slice(0, 60) || "（无预览）", hint: (s.cwd || "").split(/[\\/]/).pop() || "", run: () => resumeSession(s.file), group: "会话" })),
+	];
+	ckIdx = 0;
+	if (!ckItems.length) { cmdkList.innerHTML = `<div class="ck-empty">没有匹配的命令或会话</div>`; return; }
+	cmdkList.innerHTML = "";
+	let lastGroup = "";
+	ckItems.forEach((it, i) => {
+		if (it.group !== lastGroup) {
+			lastGroup = it.group;
+			const g = document.createElement("div");
+			g.className = "ck-group";
+			g.textContent = it.group;
+			cmdkList.appendChild(g);
+		}
+		const el = document.createElement("div");
+		el.className = "ck-item" + (i === ckIdx ? " active" : "");
+		el.innerHTML = `<span class="ck-ic"></span><span class="ck-label"></span><span class="ck-hint"></span>`;
+		el.querySelector(".ck-ic").textContent = it.ic;
+		el.querySelector(".ck-label").textContent = it.label;
+		el.querySelector(".ck-hint").textContent = it.hint;
+		el.addEventListener("click", () => runCmdk(i));
+		el.addEventListener("mousemove", () => { if (ckIdx !== i) { ckIdx = i; paintCmdk(); } });
+		cmdkList.appendChild(el);
+	});
+}
+function paintCmdk() {
+	[...cmdkList.querySelectorAll(".ck-item")].forEach((el, i) => el.classList.toggle("active", i === ckIdx));
+	cmdkList.querySelectorAll(".ck-item")[ckIdx]?.scrollIntoView({ block: "nearest" });
+}
+function runCmdk(i) {
+	const it = ckItems[i ?? ckIdx];
+	if (!it) return;
+	closeCmdk();
+	try { it.run(); } catch (err) { addSysLine(`命令执行失败: ${err.message ?? err}`, true); }
+}
+cmdkInput.addEventListener("input", () => renderCmdk(cmdkInput.value));
+cmdkInput.addEventListener("keydown", (e) => {
+	if (e.key === "ArrowDown") { e.preventDefault(); ckIdx = Math.min(ckIdx + 1, ckItems.length - 1); paintCmdk(); }
+	else if (e.key === "ArrowUp") { e.preventDefault(); ckIdx = Math.max(ckIdx - 1, 0); paintCmdk(); }
+	else if (e.key === "Enter") { e.preventDefault(); runCmdk(); }
+	else if (e.key === "Escape") { e.preventDefault(); closeCmdk(); }
+});
+$("cmdk-mask").addEventListener("click", closeCmdk);
+
 /* ================= Pi 事件处理 ================= */
 function handleEvent(e) {
 	switch (e.type) {
@@ -890,6 +1013,8 @@ function handleEvent(e) {
 
 		case "message_end":
 			if (e.message?.role === "assistant") finalizeAssistant(e.message);
+			else if (e.message?.role === "user" && typeof e.message.text === "string" && e.message.text.startsWith("[子任务完成]"))
+				pushNotif("🤝", "子任务完成", e.message.text.replace("[子任务完成]", "").trim().slice(0, 100)); // P64：worker 结论推送 → 通知中心留痕
 			break;
 
 		case "tool_execution_start":
@@ -925,10 +1050,12 @@ function handleEvent(e) {
 		case "task_update": // P30：后台任务状态变更
 			renderTasksBadge();
 			if (dockTab === "tasks" && !dock.hidden) renderTasksPane();
-			if (e.task?.status === "done" && document.hidden) {
-				window.openpi.notify(`✅ 后台任务完成`, `${e.task.title || ""}${e.task.workspace ? ` ｜ 沙箱产物：${e.task.workspace}` : ""}`).catch(() => {});
-			} else if (e.task?.status === "error" && document.hidden) {
-				window.openpi.notify(`❌ 后台任务失败`, e.task.title || "").catch(() => {});
+			if (e.task?.status === "done") {
+				pushNotif("✅", `后台任务完成`, e.task.title || "");
+				if (document.hidden) window.openpi.notify(`✅ 后台任务完成`, `${e.task.title || ""}${e.task.workspace ? ` ｜ 沙箱产物：${e.task.workspace}` : ""}`).catch(() => {});
+			} else if (e.task?.status === "error") {
+				pushNotif("❌", `后台任务失败`, e.task.title || "");
+				if (document.hidden) window.openpi.notify(`❌ 后台任务失败`, e.task.title || "").catch(() => {});
 			}
 			break;
 
@@ -941,11 +1068,11 @@ function handleEvent(e) {
 			syncSessionIdentity(); // 会话文件已落盘：同步稳定后的 sessionId + task 标记，再刷新列表
 			scheduleReviewRefresh();
 			maybeAutoHandoff(); // P24：占用过阈值 → 上下文接力
-			// P26：窗口不在前台时弹系统通知（跑长任务可切走，完成不必盯屏）
+			// P26：窗口不在前台时弹系统通知（跑长任务可切走，完成不必盯屏）；P65：通知中心总是留痕
 			if (document.hidden) {
 				const t = $("chat-tab-title")?.textContent || "会话";
 				window.openpi.notify(`✅ ${t} · 任务完成`, "Agent 已就绪，点击返回查看结果").catch(() => {});
-			}
+			} else pushNotif("✅", "任务完成", "Agent 已就绪");
 			break;
 
 		case "queue_update":
@@ -1523,7 +1650,7 @@ document.addEventListener("keydown", (e) => {
 	if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
 	const k = e.key.toLowerCase();
 	if (k === "n") { e.preventDefault(); newSession(); }
-	else if (k === "k") { e.preventDefault(); sessionFilter.focus(); sessionFilter.select(); }
+	else if (k === "k") { e.preventDefault(); openCmdk(); } // P65：Ctrl+K 升级为全局命令面板（含会话搜索，原会话过滤在面板内承接）
 	else if (k === "=") { e.preventDefault(); window.openpi.newWindow(); }
 	else if (k === "p") { e.preventDefault(); showDock("files"); filesFilter.focus(); filesFilter.select(); }
 	else if (k === "t") { e.preventDefault(); toggleDock("preview"); }
@@ -2101,6 +2228,7 @@ function handleM2Event(e) {
 		uiModal(e).then((v) => window.openpi.uiRespond(e.id, v));
 	} else if (e.type === "ui_notify") {
 		addSysLine(`${e.level === "error" ? "✗" : e.level === "warning" ? "⚠" : "ℹ"} ${e.message}`, e.level === "error");
+		if (e.level === "error" || e.level === "warning") pushNotif(e.level === "error" ? "❗" : "⚠️", e.level === "error" ? "运行异常" : "警告", e.message);
 	}
 }
 // 第二订阅：M2 事件（不覆盖主分发）

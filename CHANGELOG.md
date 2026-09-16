@@ -2,6 +2,12 @@
 
 用户视角的里程碑记录；实施细节与踩坑见 `PROGRESS.md`。
 
+## 0.54.0（2026-09-16）
+
+- **通知中心**（P65）：顶栏铃铛 + 未读徽标 + 收件箱面板；任务完成/失败、子任务完成（P64 worker 结论）、运行异常(ui_notify error/warning)自动留痕，OS 通知之外的持久层；展开即全部已读，支持清空
+- **Ctrl+K 全局命令面板**：命令（新建/切主题/设置/侧栏/文件·审核·预览面板/通知中心）+ 会话搜索跳转，↑↓/回车/Esc 键盘操作；原 Ctrl+K 会话过滤并入面板
+- 新增 e2e-p65（10 断言）；坐坑 #118：mock LLM 缺 [DONE]+res.end() 时 SDK 等 SSE EOF，message_end/agent_settled 不发（finish_reason=stop 已消费但流不关）——mock 必须 OpenAI 标准收尾
+
 ## 0.53.1（2026-09-16）
 
 - **修 worker 结论回喂竞态**：followUp 入队与 agent loop 收尾 drain 存在毫秒级竞态（worker 秒完成时结论可能滞留队列无人消费）——改为延迟 1.5s 注入 + 三态策略（loop 空闲直接 prompt 开新轮 / 忙时转 followUp 排队 / 再降级 steer），实测全量 35 套绿

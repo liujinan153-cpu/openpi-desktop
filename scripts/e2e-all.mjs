@@ -58,6 +58,7 @@ const SUITES = [
 	{ file: "e2e-p63.mjs", label: "LSP语义诊断+目标模式", ver: "0.52.0" },
 	{ file: "e2e-p64.mjs", label: "并行worker多角色(run_cmd)", ver: "0.53.0" },
 	{ file: "e2e-p64b.mjs", label: "会话导入(ClaudeCode)", ver: "0.53.0" },
+	{ file: "e2e-p65.mjs", label: "通知中心+命令面板", ver: "0.54.0" },
 	{ file: "e2e-p27.mjs", label: "checkpoint 回滚+@补全", ver: "0.23.0" },
 	{ file: "e2e-office-skills.mjs", label: "内置办公技能", ver: "0.21.0" },
 	{
