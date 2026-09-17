@@ -52,12 +52,13 @@ if (!fs.existsSync(exePath)) {
 }
 const buf = fs.readFileSync(exePath);
 const sha512 = crypto.createHash("sha512").update(buf).digest("base64");
+const releaseAssetName = exeName.replace(/ /g, "."); // GitHub Release 会把资产名空格规范化为点
 const latestYml = `version: ${ver}
 files:
-  - url: ${exeName}
+  - url: ${releaseAssetName}
     sha512: ${sha512}
     size: ${buf.length}
-path: ${exeName}
+path: ${releaseAssetName}
 sha512: ${sha512}
 releaseDate: '${new Date().toISOString()}'`;
 fs.writeFileSync(path.join(ROOT, "dist", "latest.yml"), latestYml, "utf8");

@@ -61,9 +61,12 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(9398, "127.0.0.1", r));
 
 const cfgPath = path.join(os.homedir(), ".pi", "agent", "updater.json");
+const devCfgPath = path.join(ROOT33, "dev-app-update.yml");
+const cfgBefore = fs.existsSync(cfgPath) ? fs.readFileSync(cfgPath) : null;
+const devBefore = fs.existsSync(devCfgPath) ? fs.readFileSync(devCfgPath) : null;
 fs.writeFileSync(cfgPath, JSON.stringify({ provider: "generic", url: "http://127.0.0.1:9398/" }, null, 2));
-// electron-updater 开发模式（未打包）下载源必须走工程根 dev-app-update.yml；打包版忽略此文件不受影响
-fs.writeFileSync(path.join(ROOT33, "dev-app-update.yml"), `provider: generic\nurl: http://127.0.0.1:9398/\n`);
+// electron-updater 开发模式必须走工程根 dev-app-update.yml；结束前恢复用户/工程原配置
+fs.writeFileSync(devCfgPath, `provider: generic\nurl: http://127.0.0.1:9398/\n`);
 
 /* 会话前置：审核面板需要 state.session?.workspace（走 UI 同款 startSession 同步渲染层状态） */
 await ev(`startSession(undefined).then(() => null)`);
@@ -146,7 +149,8 @@ await sleep(500);
 await shot("p33-hunks.png");
 
 server.close();
-// P37.2：e2e 不再留下自己的端口——发布源 9355 是常驻设施，跑完恢复标准指向（此前遗留 9398 会让用户检查更新报网络不可达）
-fs.writeFileSync(cfgPath, JSON.stringify({ provider: "generic", url: "http://127.0.0.1:9355/" }, null, 2), "utf8");
+// P70：原样恢复现场，测试不得把用户更新源强改成本机端口。
+if (cfgBefore) fs.writeFileSync(cfgPath, cfgBefore); else fs.rmSync(cfgPath, { force: true });
+if (devBefore) fs.writeFileSync(devCfgPath, devBefore); else fs.rmSync(devCfgPath, { force: true });
 console.log(fails ? `\n${total - fails}/${total} 通过` : `\n全部通过 ✓ ${total}/${total}`);
 process.exit(fails ? 1 : 0);

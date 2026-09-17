@@ -1013,6 +1013,26 @@ function handleEvent(e) {
 			setStatus("Agent 运行中…");
 			break;
 
+		case "agent_recovering":
+			setStreaming(false);
+			setStatus("Agent 进程恢复中…");
+			break;
+
+		case "agent_recovered":
+			setStreaming(false);
+			setStatus(`已恢复 · ${state.session?.model?.id ?? ""}`);
+			if (state.lastPrompt) {
+				const c = newAssistantBubble();
+				appendText("Agent 进程已恢复；刚才中断的请求没有自动重放，以避免重复执行工具。\n\n");
+				mountRetryChip(c);
+			}
+			break;
+
+		case "agent_recovery_failed":
+			setStreaming(false);
+			setStatus("Agent 恢复失败");
+			break;
+
 		case "turn_start":
 			newAssistantBubble();
 			break;
@@ -2256,6 +2276,14 @@ function handleM2Event(e) {
 	} else if (e.type === "ui_notify") {
 		addSysLine(`${e.level === "error" ? "✗" : e.level === "warning" ? "⚠" : "ℹ"} ${e.message}`, e.level === "error");
 		if (e.level === "error" || e.level === "warning") pushNotif(e.level === "error" ? "❗" : "⚠️", e.level === "error" ? "运行异常" : "警告", e.message);
+	} else if (e.type === "agent_recovering") {
+		addSysLine("⚠ Agent 进程异常退出，正在恢复最近会话；中断的本轮不会自动重放。", true);
+		pushNotif("⚠️", "Agent 正在恢复", "会话与工作区将自动恢复，中断的本轮可稍后重试");
+	} else if (e.type === "agent_recovered") {
+		addSysLine("✓ Agent 进程与会话状态已恢复；若本轮中断，请点击“重试本轮”。");
+	} else if (e.type === "agent_recovery_failed") {
+		addSysLine(`✗ Agent 自动恢复失败：${e.error || "未知错误"}。请重新打开会话。`, true);
+		pushNotif("❗", "Agent 恢复失败", e.error || "请重新打开会话");
 	}
 }
 // 第二订阅：M2 事件（不覆盖主分发）

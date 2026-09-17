@@ -13,7 +13,8 @@ const RUNTIME = path.join(ROOT, "resources", "runtime", "python");
 const PY_VER = "3.12.10";
 const EMBED_URL = `https://www.python.org/ftp/python/${PY_VER}/python-${PY_VER}-embed-amd64.zip`;
 const CACHE = path.join(os.tmpdir(), "openpi-python-embed.zip");
-const DEPS = ["python-docx", "openpyxl", "python-pptx", "lxml", "Pillow", "pypdf", "reportlab", "PyMuPDF", "py7zr", "pikepdf", "pdfplumber", "defusedxml"];
+// P70：锁定构建依赖，确保 CI/本地可复现并使许可证清单稳定；升级需显式改版本并复核 NOTICE。
+const DEPS = ["python-docx==1.2.0", "openpyxl==3.1.5", "python-pptx==1.0.2", "lxml==6.1.3", "Pillow==12.3.0", "pypdf==6.18.1", "reportlab==5.0.1", "PyMuPDF==1.28.2", "py7zr==1.1.3", "pikepdf==10.13.0.post1", "pdfplumber==0.11.10", "defusedxml==0.7.1"];
 
 const selfCheck = () => {
 	const py3 = path.join(RUNTIME, "python3.exe");

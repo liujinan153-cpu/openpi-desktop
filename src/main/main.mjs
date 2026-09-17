@@ -4,7 +4,7 @@
  * M3：多工作区并行 —— 每个窗口一个独立 AgentHost（独立会话/工作区/模型/审批通道），
  * IPC 按 webContents.id 路由到对应宿主；窗口关闭即释放其 AgentSession。
  */
-import { app, BrowserWindow, ipcMain, dialog, shell, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, Notification, session } from "electron";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -19,8 +19,11 @@ import { detectImportSources, importAllClaude, importAllCodex, importAllOpenCode
 import { ensureShellEnv } from "./shell-env.mjs";
 import { initUpdater, checkUpdate, downloadUpdate, installUpdate, openUpdaterConfig, getSnapshot, UPDATER_CFG, feedConfigured } from "./updater.mjs";
 import { getConfig, saveProvider, deleteProvider, saveKey, testEndpoint, LOCAL_PRESETS } from "./config-store.mjs";
+import { installElectronSecurity } from "./electron-security.mjs";
+import { expandHome, resolveAllowedPath, resolveWorkspacePath } from "./path-policy.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const RENDERER_FILE = path.join(__dirname, "..", "renderer", "index.html");
 const DEFAULT_WORKSPACE = path.join(os.homedir(), "openpi-workspace");
 const SESSIONS_ROOT = process.env.OPENPI_SESSIONS_ROOT || path.join(os.homedir(), ".pi", "agent", "sessions"); // env 覆盖供 e2e 隔离
 
@@ -85,7 +88,7 @@ function createWindow() {
 		},
 	});
 	win.setMenuBarVisibility(false);
-	win.loadFile(path.join(__dirname, "..", "renderer", "index.html"));
+	win.loadFile(RENDERER_FILE);
 	const host = createAgentProxy(win, app.getPath("userData"), (event) => { // P43 事件钩子 + P44 settled 增量索引
 		if (event?.type === "agent_settled") {
 			host.agentInfo().then((info) => {
@@ -106,6 +109,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+	installElectronSecurity({ app, session, shell, rendererFile: RENDERER_FILE }); // P70：导航/webview/权限边界
 	await ensureShellEnv(); // P40.2：PATH 保险，必须早于任何 bash/SDK 子进程
 	app.setAppUserModelId("dev.openpi.desktop"); // Windows toast 通知来源标识（与 appId 一致）
 	const win = createWindow();
@@ -500,12 +504,7 @@ app.whenReady().then(async () => {
 		return shell.openExternal(u);
 	});
 	ipcMain.handle("shell:open-workspace-file", (e, file) => {
-		const host = hostOf(e);
-		if (!host.workspace) throw new Error("当前会话无工作区");
-		const rel = String(file ?? "");
-		if (!rel || rel.includes("..") || path.isAbsolute(rel)) throw new Error("非法文件路径");
-		const abs = path.resolve(host.workspace, rel);
-		if (!abs.startsWith(path.resolve(host.workspace))) throw new Error("非法文件路径");
+		const abs = resolveWorkspacePath(hostOf(e).workspace, file, { mustExist: true });
 		return shell.openPath(abs);
 	});
 
@@ -632,13 +631,16 @@ app.whenReady().then(async () => {
 		return { ok: true };
 	});
 	ipcMain.handle("ctx:agentsFiles", (e) => hostOf(e).contextFiles?.() ?? []);
-	// P37：~ 路径统一展开为家目录（shell.openPath 不认 ~）
-	const expandHome = (p) => String(p ?? "").replace(/^~(?=[\\/]|$)/, app.getPath("home"));
-	ipcMain.handle("app:openPath", (_e, p) => shell.openPath(expandHome(p)));
+	// P70：渲染层只能打开工作区/已加载指令目录内的真实路径（同时阻止符号链接逃逸）。
+	const allowedUiRoots = (host) => [host.workspace, getAgentDir(), path.join(os.homedir(), ".agents")].filter(Boolean);
+	ipcMain.handle("app:openPath", (e, p) => {
+		const host = hostOf(e);
+		return shell.openPath(resolveAllowedPath(allowedUiRoots(host), expandHome(p, app.getPath("home")), { mustExist: true, base: host.workspace || getAgentDir() }));
+	});
 	// P42：办公产物预览转换（docx/xlsx/md → 临时 HTML，webview 直接能看）
-	ipcMain.handle("preview:convert", async (_e, p) => {
+	ipcMain.handle("preview:convert", async (e, p) => {
 		try {
-			const abs = path.resolve(expandHome(p));
+			const abs = resolveWorkspacePath(hostOf(e).workspace, expandHome(p, app.getPath("home")), { mustExist: true });
 			const ext = path.extname(abs).toLowerCase();
 			if (!fs.existsSync(abs)) return { error: "文件不存在" };
 			if (!ext) return { error: "无扩展名，无法识别类型" };
@@ -670,16 +672,15 @@ app.whenReady().then(async () => {
 		}
 	});
 	// P37：产物文件卡配套——资源管理器中定位 + 存在性检查（渲染层卡片灰置缺失态用）
-	ipcMain.handle("app:showItemInFolder", (_e, p) => {
-		const abs = path.resolve(expandHome(p));
-		if (fs.existsSync(abs)) shell.showItemInFolder(abs);
-		else if (fs.existsSync(path.dirname(abs))) shell.showItemInFolder(path.dirname(abs));
-		else throw new Error("路径不存在");
+	ipcMain.handle("app:showItemInFolder", (e, p) => {
+		const abs = resolveWorkspacePath(hostOf(e).workspace, expandHome(p, app.getPath("home")), { mustExist: true });
+		shell.showItemInFolder(abs);
 		return true;
 	});
-	ipcMain.handle("app:fileStat", (_e, p) => {
+	ipcMain.handle("app:fileStat", (e, p) => {
 		try {
-			const st = fs.statSync(expandHome(p));
+			const abs = resolveWorkspacePath(hostOf(e).workspace, expandHome(p, app.getPath("home")), { mustExist: true });
+			const st = fs.statSync(abs);
 			return { exists: true, isFile: st.isFile(), size: st.size };
 		} catch {
 			return { exists: false };

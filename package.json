@@ -1,16 +1,31 @@
 {
   "name": "openpi-desktop",
-  "version": "0.58.0",
+  "version": "0.59.0",
   "private": true,
   "type": "module",
   "description": "OpenPi Desktop - desktop agent harness powered by pi coding agent SDK",
+  "author": "OpenPi Desktop contributors",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liujinan153-cpu/openpi-desktop.git"
+  },
+  "homepage": "https://github.com/liujinan153-cpu/openpi-desktop",
+  "bugs": "https://github.com/liujinan153-cpu/openpi-desktop/issues",
   "main": "src/main/main.mjs",
   "scripts": {
     "poc": "node scripts/poc-node.mjs",
     "start": "electron .",
+    "check": "node scripts/verify-check.cjs",
+    "test:unit": "node scripts/unit-p53.cjs && node scripts/unit-p55.cjs && node scripts/unit-p64b.mjs && node scripts/unit-p69.mjs && node scripts/unit-p70.mjs",
+    "test:ci": "npm run check && npm run test:unit",
     "e2e:all": "node scripts/e2e-all.mjs",
+    "e2e:mock": "node scripts/e2e-all.mjs --mock-only",
     "dist": "node scripts/dist.mjs",
-    "dist:skip-e2e": "electron-builder --win"
+    "dist:skip-e2e": "electron-builder --win",
+    "smoke:package": "node scripts/smoke-package.mjs",
+    "licenses:audit": "node scripts/audit-licenses.mjs",
+    "publish:github": "node scripts/publish-github.mjs liujinan153-cpu/openpi-desktop"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "0.85.1",
@@ -41,6 +56,11 @@
     "appId": "dev.openpi.desktop",
     "productName": "OpenPi Desktop",
     "afterPack": "scripts/after-pack.cjs",
+    "publish": {
+      "provider": "github",
+      "owner": "liujinan153-cpu",
+      "repo": "openpi-desktop"
+    },
     "directories": {
       "output": "dist"
     },

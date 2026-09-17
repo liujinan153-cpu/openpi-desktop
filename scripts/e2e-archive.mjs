@@ -109,17 +109,20 @@ await waitSettled();
 
 const report1 = path.join(WS, "output", "季度资料", "季度报告.txt");
 const report1b = path.join(WS, "output", "季度资料", "数据", "明细表.txt");
-const extracted = fs.existsSync(report1) || fs.existsSync(report1b);
-ok("解压产物存在（中文文件名不乱码）", extracted, `${report1b}`);
-if (!fs.existsSync(report1)) {
-	// 兼容模型自选目录名（如 output/季度资料.zip 解到别处）——扫描 output 全树找 中文名产物
+// P70 全量修复：真模型可能自选解压目录名（本次实测生成 output/回归验证/）——硬断言先看预期路径，兜底全树找中文产物
+let extracted = fs.existsSync(report1) || fs.existsSync(report1b);
+let foundWhere = `${report1b}`;
+if (!extracted) {
 	const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
 		const p = path.join(d, e.name);
 		return e.isDirectory() ? walk(p) : [p];
 	});
 	const all = fs.existsSync(path.join(WS, "output")) ? walk(path.join(WS, "output")) : [];
-	ok("output 全树找到中文产物（目录名不同）", all.some((p) => p.includes("季度报告.txt") || p.includes("明细表.txt")), all.slice(0, 4).join(" | "));
+	const hit = all.find((p) => p.includes("季度报告.txt") || p.includes("明细表.txt"));
+	if (hit) { extracted = true; foundWhere = hit; }
+	ok("output 全树找到中文产物（目录名不同）", !!hit, all.slice(0, 4).join(" | ") || "（output 为空）");
 }
+ok("解压产物存在（中文文件名不乱码）", extracted, foundWhere);
 const reply1 = await ev(`[...document.querySelectorAll(".msg.assistant .body")].map(d=>d.textContent).join(" ").slice(-1200)`);
 ok("回复报告了绝对路径（文件卡素材）", /output/i.test(reply1) || /[A-Z]:\\/.test(reply1), reply1.slice(-160).replace(/\s+/g, " "));
 

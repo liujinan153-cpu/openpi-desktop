@@ -371,10 +371,18 @@ export class AgentHost {
 
 	/** 当前会话实时信息（sessionId 在首次落盘后才稳定） */
 	info() {
+		const m = this.session?.model;
+		let thinkingLevel = null;
+		try { thinkingLevel = this.session?.thinkingLevel ?? null; } catch { /* SDK 属性可能不可读 */ }
 		return {
 			sessionId: this.session?.sessionId ?? null,
 			sessionFile: this.session?.sessionFile ?? null,
 			workspace: this.workspace ?? null,
+			model: m ? { provider: m.provider, id: m.id, name: m.name ?? m.id, contextWindow: m.contextWindow ?? 0, input: m.input ?? ["text"] } : null,
+			thinkingLevel,
+			approvalMode: APPROVAL.mode,
+			approvalAllowlist: [...(APPROVAL.allow ?? [])],
+			autoCompact: this._pendingAutoCompact ?? this.session?.settingsManager?.getCompactionEnabled?.() ?? true,
 			hostPid: this.hostPid ?? null, // P43：所在进程（worker 模式 ≠ main pid）
 		};
 	}

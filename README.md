@@ -1,14 +1,25 @@
-# OpenPi Desktop (M1)
+# OpenPi Desktop
 
-基于 [Pi coding agent](https://pi.dev) 的桌面 Agent Harness。**不修改 Pi 源码**，通过官方 SDK（`@earendil-works/pi-coding-agent`）集成。
+基于 [Pi coding agent](https://pi.dev) SDK 的 Windows 桌面 AI Agent。**不修改 Pi 源码**，集成会话、终端、Git、浏览器/电脑操作、MCP、并行 worker 与办公技能。
 
-## 运行
+> 当前为公开 Beta。安装包尚未购买 Windows 商业代码签名证书，首次安装可能出现 SmartScreen「未知发布者」提示；请只从本项目 GitHub Releases 下载并核对版本。
+
+## 下载与更新
+
+- 下载：<https://github.com/liujinan153-cpu/openpi-desktop/releases>
+- 更新：应用内 **设置 → 检查更新**，默认使用上述 GitHub Releases；`~/.pi/agent/updater.json` 可覆盖为自建 generic/GitHub 源。
+- 支持 Windows 10/11 x64，提供 NSIS 安装版与便携版。
+
+## 开发与构建
 
 ```bash
-npm install          # 已装好可跳过
+npm install          # 安装依赖
 npm run start        # 开发模式启动
-npm run dist         # 打包 Windows 安装版 + 便携版 → dist/
-npm run poc          # 无头 SDK 验证脚本（命令行流式对话）
+npm run test:ci      # 无付费模型的语法检查 + 单元测试
+npm run e2e:mock     # 本地 mock E2E（不调用真实模型）
+npm run dist         # 全量 E2E 门槛 + Windows 安装版/便携版 → dist/
+npm run smoke:package # 检查打包依赖、更新清单与运行时
+npm run licenses:audit # 生成/校验第三方许可证清单
 ```
 
 > 在 pi Desktop / 其他 Electron 宿主的终端里启动时，需先 `unset ELECTRON_RUN_AS_NODE`，否则 electron.exe 会以纯 Node 模式运行。
@@ -111,6 +122,13 @@ npm run poc          # 无头 SDK 验证脚本（命令行流式对话）
 - ✅ 跨会话消息搜索（v0.29）：侧栏搜全部历史会话的消息内容，命中带片段可直接恢复
 - ✅ Claude Code 取经三部曲（v0.30/0.31）：TodoWrite 任务清单（AI 多步任务实时勾选）/ Plan Mode 计划模式（结构化计划卡，批准后执行）/ # 快捷记忆（# 开头固化进 AGENTS.md，空 # 管理记忆）
 - ✅ 打包质量门（v0.27）：npm run dist 前强制跑全量 E2E 回归（11 套 141 断言），失败禁止出包
+
+## 安全与许可证
+
+- OpenPi 是高权限本地 Agent。处理陌生项目时优先使用「只读」或「自动编辑」，谨慎启用「全自动」。
+- 会话和配置保存在 `~/.pi/agent/`；Pi 兼容的 API key 默认存于本地 `auth.json`，分享日志前请脱敏。
+- 安全报告方式和信任边界见 [`SECURITY.md`](SECURITY.md)。
+- OpenPi 源码采用 AGPL-3.0-only；捆绑技能/依赖保留各自许可证。部分 Z.ai 办公技能仅允许个人、教育、非商业使用，详见 [`NOTICE.md`](NOTICE.md)。
 
 ## 已知限制
 

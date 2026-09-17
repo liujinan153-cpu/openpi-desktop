@@ -86,8 +86,41 @@ const SUITES = [
 
 const onlyIdx = process.argv.indexOf("--only");
 const only = onlyIdx > -1 ? process.argv[onlyIdx + 1].split(",") : null;
-const suites = only ? SUITES.filter((s) => only.some((o) => s.file.includes(o))) : SUITES;
-if (!suites.length) { console.error("--only 无匹配套件"); process.exit(2); }
+const mockOnly = process.argv.includes("--mock-only");
+// 明确依赖真实上游的套件；CI/mock 门槛排除，避免费用与网络随机性。
+const REAL_PROVIDER_SUITES = new Set(["e2e-p26.mjs", "e2e-p27.mjs", "e2e-p28.mjs", "e2e-p30.mjs", "e2e-p31.mjs", "e2e-p34.mjs", "e2e-p35.mjs", "e2e-p36.mjs", "e2e-p37.mjs", "e2e-archive.mjs", "e2e-handoff.mjs", "e2e-office-skills.mjs"]);
+let suites = only ? SUITES.filter((s) => only.some((o) => s.file.includes(o))) : SUITES;
+if (mockOnly) suites = suites.filter((s) => !REAL_PROVIDER_SUITES.has(s.file));
+if (!suites.length) { console.error("过滤条件无匹配套件"); process.exit(2); }
+
+// ── 模型闸门（踩坑 #120）：e2e 一律 glm-5.3-flash；默认模型是贵价模型（如 glm-5.2）直接烧钱（10 元烧 3.5 套实锤）
+// 启动时强制切 flash，退出时还原；用户明令：e2e 不得擅自用 5.2
+const SETTINGS = path.join(os.homedir(), ".pi", "agent", "settings.json");
+const E2E_MODEL = "glm-5.3-flash";
+let settingsBefore = null;
+try {
+	settingsBefore = fs.existsSync(SETTINGS) ? fs.readFileSync(SETTINGS) : null;
+	const cfg = settingsBefore ? JSON.parse(settingsBefore.toString("utf8")) : {};
+	if (cfg.defaultModel !== E2E_MODEL) {
+		const prev = cfg.defaultModel ?? "（未设置）";
+		cfg.defaultModel = E2E_MODEL;
+		fs.mkdirSync(path.dirname(SETTINGS), { recursive: true });
+		fs.writeFileSync(SETTINGS, JSON.stringify(cfg, null, 2));
+		console.log(`⚠ 模型闸门（#120）：defaultModel ${prev} → ${E2E_MODEL}（跑完原样还原）`);
+	}
+} catch (err) { console.error(`⚠ 模型闸门设置失败：${err.message}`); }
+let modelRestored = false;
+const restoreModel = () => {
+	if (modelRestored) return;
+	try {
+		if (settingsBefore) fs.writeFileSync(SETTINGS, settingsBefore);
+		else fs.rmSync(SETTINGS, { force: true });
+	} catch (err) { console.error(`模型闸门还原失败：${err.message}`); }
+	modelRestored = true;
+};
+process.on("exit", restoreModel);
+process.on("SIGINT", () => { restoreModel(); process.exit(130); });
+process.on("SIGTERM", () => { restoreModel(); process.exit(143); });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const killElectron = () => { // 只杀 9333 占用者，不误伤系统里其他 Electron 应用

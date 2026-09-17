@@ -2,6 +2,15 @@
 
 用户视角的里程碑记录；实施细节与踩坑见 `PROGRESS.md`。
 
+## 0.59.0（2026-09-18）
+
+- **公开发布链闭环（P70）**：默认更新源从本机 `127.0.0.1:9355` 切为公开 GitHub Releases；统一 GitHub 资产名、发布脚本、匿名下载 smoke、包内 `app-update.yml` 与 `build.publish`；保留 updater.json 用户覆盖能力
+- **Electron 安全加固**：顶层导航/新窗口拦截，webview 限制协议并强制 sandbox/contextIsolation/no-node，默认拒绝站点权限；文件打开/预览/定位 IPC 增加工作区真实路径和符号链接边界
+- **Agent 真恢复**：utilityProcess 崩溃后自动重建 ModelRuntime、恢复最近会话/工作区/模型/思考等级/审批模式/允许清单/自动压缩；中断轮不自动重放，UI 提供明确重试入口
+- **工程与合规**：新增 Windows CI/release workflow、统一语法与 unit-p70、打包/public-release smoke、许可证审计、AGPL 项目许可证、NOTICE/SECURITY；清理异常 e2e-ws gitlink和一次性上传脚本
+- **测试不污染用户状态**：更新 E2E 与模型闸门改为字节级原样恢复；新增 mock-only E2E 入口，CI 不调用付费真模型
+- **公开 Beta 边界**：尚无 Windows 商业代码签名证书，README 明示 SmartScreen 未知发布者风险；签名为外部凭证阻塞项
+
 ## 0.58.0（2026-09-16）
 
 - **后台任务取消通道**（P69）：任务面板 running 任务行新增「✕ 取消」按钮 → worker session abort → 状态变「已取消」（主动取消不计为错误）；主进程新增 task:cancel IPC，taskSessions Map 持引用不进序列化

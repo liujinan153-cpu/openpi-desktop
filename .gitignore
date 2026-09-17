@@ -5,6 +5,8 @@ release/
 
 # 运行时产物
 e2e/
+e2e-ws/*
+!e2e-ws/.keep
 *.log
 tmp-*.mjs
 E:/PI2/*.log

@@ -84,9 +84,11 @@ if (!g("rev-parse", "--verify", "-q", "HEAD")) {
 }
 /* 前置：启动独立 helper 靶子窗口（title=P56-TARGET，输入框自动聚焦） */
 const HELPER_PORT = 9649;
+const helperEnv = { ...process.env }; // pi Desktop 内起 bash 时会继承 ELECTRON_RUN_AS_NODE=1 → helper 变纯 node 秒退（P70 全量抓到）
+delete helperEnv.ELECTRON_RUN_AS_NODE;
 const helperProcRef = spawn(path.join(ROOT, "node_modules", "electron", "dist", "electron.exe"),
 	[path.join(ROOT, "scripts", "e2e-p56-helper.cjs"), `--remote-debugging-port=${HELPER_PORT}`],
-	{ detached: false, stdio: "ignore" });
+	{ detached: false, stdio: "ignore", env: helperEnv });
 let helperReady = false;
 for (let i = 0; i < 20; i++) {
 	await sleep(1000);

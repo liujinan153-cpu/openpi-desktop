@@ -79,9 +79,11 @@ const llm = http.createServer((req, res) => {
 llm.listen(LLM, "127.0.0.1");
 
 /* ---- 前置：helper 靶子窗口（input 带 aria-label → UIA Name） ---- */
+const helperEnv = { ...process.env }; // 同 p56：清 ELECTRON_RUN_AS_NODE（pi Desktop 内起 bash 继承污染）
+delete helperEnv.ELECTRON_RUN_AS_NODE;
 const helperProcRef = spawn(path.join(ROOT, "node_modules", "electron", "dist", "electron.exe"),
 	[path.join(ROOT, "scripts", "e2e-p56-helper.cjs"), `--remote-debugging-port=${HELPER_PORT}`],
-	{ detached: false, stdio: "ignore" });
+	{ detached: false, stdio: "ignore", env: helperEnv });
 let helperReady = false;
 for (let i = 0; i < 20; i++) {
 	await sleep(1000);

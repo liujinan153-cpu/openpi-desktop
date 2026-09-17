@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      replace:
+        description: Replace existing assets for this version
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:ci
+      - run: npm run licenses:audit
+      - run: node scripts/prepare-python-runtime.mjs
+      - run: node scripts/dist.mjs --fast
+      - run: npm run smoke:package
+      - name: Publish GitHub Release
+        shell: cmd
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/publish-github.mjs liujinan153-cpu/openpi-desktop ${{ inputs.replace && '--replace' || '' }}
+      - run: node scripts/smoke-public-release.mjs
