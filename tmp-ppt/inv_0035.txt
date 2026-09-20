@@ -1,0 +1,305 @@
+SLIDE SIZE: 12192000x6858000 (33.9x19.1 cm) slides=24
+
+===== SLIDE 0 layout=标题幻灯片 =====
+[2] PLACEHOLDER (14) name='标题 1' pos=(2.9,5.7) size=(28.0x2.8)
+   TXT: '8.别让它抢走太多（第2课时）' sizes=[48.0, 48.0, 48.0, 48.0] fonts=['微软雅黑']
+[6] TEXT_BOX (17) name='副标题 2' pos=(3.9,10.5) size=(26.4x2.8)
+   TXT: '年    级：四年级                     学    科：道德与法治（统编版）' sizes=[28.0] fonts=[]
+   TXT: '主讲人：                                学    校：' sizes=[28.0] fonts=[]
+
+===== SLIDE 1 layout=1_标题和内容 =====
+[3] GROUP (6) name='组合 2' pos=(5.6,5.4) size=(13.3x1.5)
+  [18] GROUP (6) name='组合 17' pos=(2.8,6.1) size=(9.1x1.5)
+    [19] AUTO_SHAPE (1) name='圆角矩形 18' pos=(5.1,4.8) size=(9.6x1.5)
+    [20] AUTO_SHAPE (1) name='矩形 19' pos=(4.5,4.7) size=(1.7x1.7)
+  [21] TEXT_BOX (17) name='文本框 20' pos=(2.9,6.2) size=(13.1x1.3)
+     TXT: '1    发现被挤占时间' sizes=[24.0, 24.0] fonts=['华文楷体']
+[22] TEXT_BOX (17) name='文本框 21' pos=(6.9,7.2) size=(22.6x1.4)
+   TXT: '   借助P52插图，说出被挤占的生活时间' sizes=[None, None, None] fonts=['华文楷体']
+[4] GROUP (6) name='组合 3' pos=(5.6,12.2) size=(13.3x1.5)
+  [23] GROUP (6) name='组合 22' pos=(2.8,12.9) size=(9.1x1.5)
+    [24] AUTO_SHAPE (1) name='圆角矩形 23' pos=(5.1,4.8) size=(9.6x1.5)
+    [25] AUTO_SHAPE (1) name='矩形 24' pos=(4.5,4.7) size=(1.7x1.7)
+  [26] TEXT_BOX (17) name='文本框 25' pos=(3.0,13.0) size=(13.1x1.3)
+     TXT: '3    订立可执行约定' sizes=[24.0, 24.0] fonts=['华文楷体']
+[27] TEXT_BOX (17) name='文本框 26' pos=(6.9,13.9) size=(22.6x1.4)
+   TXT: '   区分口号与可执行约定，填写表格并改写' sizes=[None] fonts=['华文楷体']
+[31] PLACEHOLDER (14) name='标题 27' pos=(5.7,3.0) size=(22.8x1.6)
+   TXT: '我和它有个约定' sizes=[30.0] fonts=[]
+[2] GROUP (6) name='组合 1' pos=(5.6,8.8) size=(13.3x1.5)
+  [28] GROUP (6) name='组合 27' pos=(2.8,9.7) size=(9.1x1.5)
+    [29] AUTO_SHAPE (1) name='圆角矩形 28' pos=(5.1,4.8) size=(9.6x1.5)
+    [30] AUTO_SHAPE (1) name='矩形 29' pos=(4.5,4.7) size=(1.7x1.7)
+  [32] TEXT_BOX (17) name='文本框 31' pos=(3.0,9.9) size=(13.1x1.3)
+     TXT: '2    借鉴家庭案例' sizes=[24.0, 24.0] fonts=['华文楷体']
+[33] TEXT_BOX (17) name='文本框 32' pos=(6.9,10.8) size=(22.6x1.4)
+   TXT: '   齐读P53豆豆一家，提取定时、放下设备、家庭陪伴' sizes=[None, None, None] fonts=['华文楷体']
+
+===== SLIDE 2 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,5.2) size=(31.0x1.8)
+   TXT: '      教师活动：投影教材P52男孩看动画拒绝打篮球插图，抛出驱动问题，板书核心主题“怎样不让电子产品抢走太多”。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+   TXT: '弟弟：“哥哥，下楼一起打篮球吧！” 哥哥：“别打扰我，我还要看动画片呢！”' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '一、情境导入（5分钟）' sizes=[22.0, 22.0, 22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(1.4,7.4) size=(15.2x9.0) IMG=image.jpeg (1283, 824)
+[12] PICTURE (13) name='图片 11' pos=(17.3,7.4) size=(15.2x9.0) IMG=image.jpeg (1087, 1131)
+
+===== SLIDE 3 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.8,3.1) size=(30.3x1.7)
+   TXT: '      播放短片，对照教材P52。看完后说一说：哥哥错过了什么？' sizes=[14.0, 14.0, 14.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '看视频：拒绝打篮球' sizes=[22.0] fonts=['黑体']
+[2] MEDIA (16) name='media1' pos=(2.8,7.0) size=(18.8x10.6)
+
+===== SLIDE 4 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      观察插图，举手分享因玩手机、看电视错过玩耍、运动、亲子聊天的真实事例。联系真实经历，准确说出被挤占的时间类型。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '学生活动：观察与分享' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.png (1068, 825)
+
+===== SLIDE 5 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      不要抢走：同伴玩耍、运动阅读。缺席同伴游戏，就失去一起锻炼、一起欢笑的时间。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '被抢走的时光：同伴玩耍 运动' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.png (1068, 825)
+
+===== SLIDE 6 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      不要抢走：父母交流。屏幕连着远方，却可能拉远身边的亲人。想一想：家里有没有各看各的屏幕、很少聊天的时候？' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '被抢走的时光：父母交流' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 7 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      不要抢走：睡眠学习。深夜刷设备、作业拖延、无法静心阅读，都是被挤占的时光。同桌互问：你最不愿意被抢走哪一类？' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '被抢走的时光：睡眠学习' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1376, 768)
+
+===== SLIDE 8 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(9.7,7.4) size=(24.2x8.8)
+   TXT: '      客观认识过度使用的负面影响，但不片面否定电子产品。看完后用自己的话说一说。评价：找得准——能说清被挤掉的时光。' sizes=[14.0, 14.0, 14.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '看视频：过度使用的影响' sizes=[22.0] fonts=['黑体']
+[2] MEDIA (16) name='media3' pos=(2.8,7.0) size=(6.2x10.9)
+
+===== SLIDE 9 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      能清晰区分电子产品娱乐与被耽误的有益活动，不片面否定电子产品，能客观说出过度使用的负面影响即为达标。出现极端看法时，教师适时纠正并给予正向点拨。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '评价：找得准' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1376, 768)
+
+===== SLIDE 10 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      教师活动：组织同桌互问，黑板分类板书4类生活时间；出示规范句式帮助学生完整表达。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+   TXT: '不要抢走：同伴玩耍\u3000父母交流\u3000运动阅读\u3000睡眠学习' sizes=[16.0] fonts=['华文楷体']
+   TXT: '句式：我不愿意被抢走______，因为______。' sizes=[16.0, 16.0, 16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '二、活动1 教材探究（约12分钟）' sizes=[22.0, 22.0, 22.0, 22.0, 22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 11 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      教师活动：带领全班齐读P53豆豆一家故事，提炼关键做法。学生活动：默读圈画关键语句，小组概括三条家庭相处办法。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '共读P53 豆豆一家' sizes=[22.0, 22.0, 22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 12 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(11.8,7.4) size=(22.1x8.8)
+   TXT: '      结合视频和教材，寻找真实可参考的家庭范例。圈画：他们怎样定时、怎样放下设备、怎样陪伴家人？' sizes=[14.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '看视频：豆豆一家的故事' sizes=[22.0] fonts=['黑体']
+[2] MEDIA (16) name='media2' pos=(2.8,7.0) size=(8.2x10.9)
+
+===== SLIDE 13 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      定时：先说好用多久，时间一到就停。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '放下设备：把手机、电视放进收纳处。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '家庭陪伴：把时间还给家人，如故事会、下棋、散步谈心。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '说出3类以上重要生活时间并提取这三条做法，即完成本环节要求。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '定时、放下设备、家庭陪伴' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 14 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      请做“小法官”，比较并标注优劣：' sizes=[16.0] fonts=['华文楷体']
+   TXT: '①永远不玩手机' sizes=[16.0] fonts=['华文楷体']
+   TXT: '②写完作业可以玩一会儿' sizes=[16.0] fonts=['华文楷体']
+   TXT: '③晚饭后七点半把手机放进收纳盒，陪家人散步十分钟' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '活动2 案例辨析（约10分钟）' sizes=[22.0, 22.0, 22.0, 22.0, 22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 15 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      好约定要有使用条件、停止信号、替代活动和提醒办法。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '4项核心要素：时间、内容、监督、替代活动。' sizes=[16.0, 16.0] fonts=['华文楷体']
+   TXT: '还可写清禁止时段（吃饭、睡前等）和看什么、学什么。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '好约定要写清什么' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 16 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      发放空白约定表格，小组填写五大板块：时长、内容、禁止时段、替代活动、监督。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '同桌互当“约定体检员”：说得清、做得到、可检查。避免完全禁止或过于宽泛。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '起草学生版使用约定' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 17 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      小组草案能补齐至少四项关键执行条件，能指出模糊约定的不足并修改优化，视为达标。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '评价：说得清——能说一条有时间、有内容、有监督的规则。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '评价：说得清' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 18 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      两项任务：①勾选要素②改写模糊约定。同桌互相批改，挑选1—2份全班展示。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+   TXT: '对照：有时间、有内容、有监督。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '改写：少玩电子产品 / 不能玩游戏 / 永远不玩手机 / 写完作业可以玩一会儿' sizes=[16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '活动3 课堂练习（约8分钟）' sizes=[22.0, 22.0, 22.0, 22.0, 22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.png (824, 527)
+
+===== SLIDE 19 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      能独立勾选要素、改写模糊约定，对照“有时间、有内容、有监督”作出判断并给出修改建议，视为达标。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '评价：改得对——能把口号改成可执行规则。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '评价：改得对' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.png (824, 527)
+
+===== SLIDE 20 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      1.只要写完作业，就可以无限制看电视、玩手机。（\u3000\u3000）' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+   TXT: '2.每天晚上留出时间，全家不碰电子产品，一起聊天，能增进家人感情。（\u3000\u3000）' sizes=[16.0, 16.0] fonts=['华文楷体']
+   TXT: '3.周末可以一整天抱着手机玩游戏，不用出门活动。（\u3000\u3000）' sizes=[16.0, 16.0] fonts=['华文楷体']
+   TXT: '先独立判断，再说明理由。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '即时巩固：判断对错' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.png (1280, 724)
+
+===== SLIDE 21 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      学习路径：发现被挤占时间—借鉴家庭案例—订立可执行约定。' sizes=[16.0, 16.0, 16.0, 16.0, 16.0] fonts=['华文楷体']
+   TXT: '板书：我和它有个约定' sizes=[16.0] fonts=['华文楷体']
+   TXT: '不要抢走：同伴玩耍\u3000父母交流\u3000运动阅读\u3000睡眠学习' sizes=[16.0] fonts=['华文楷体']
+   TXT: '怎样约定：定时间\u3000选内容\u3000放下设备\u3000安排替代活动\u3000共同提醒' sizes=[16.0] fonts=['华文楷体']
+   TXT: '好约定：具体\u3000可做\u3000能检查\u3000愿遵守' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '三、课堂总结（5分钟）' sizes=[22.0, 22.0, 22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.png (1069, 825)
+
+===== SLIDE 22 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      发放出口卡，写下专属约定并带回家。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '用“我想追回……，我准备……”完成简短分享。' sizes=[16.0, 16.0, 16.0, 16.0, 16.0] fonts=['华文楷体']
+   TXT: '评价：约得实——约定含时间、场合或做法。' sizes=[16.0, 16.0, 16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '出口卡' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)
+
+===== SLIDE 23 layout=1_标题和内容 =====
+[4] LINE (9) name='直接连接符 3' pos=(9.3,5.7) size=(15.4x0.1)
+[6] GROUP (6) name='组合 5' pos=(7.8,5.0) size=(1.2x1.3)
+  [7] AUTO_SHAPE (1) name='矩形 6' pos=(5.9,4.2) size=(1.0x1.0)
+  [8] AUTO_SHAPE (1) name='矩形 7' pos=(6.4,4.8) size=(0.7x0.7)
+[9] TEXT_BOX (17) name='文本框 8' pos=(1.4,7.1) size=(18.0x9.0)
+   TXT: '      连续三天按约定尝试执行，每天用一句话记录做到了哪一条、哪一条还需调整。' sizes=[16.0] fonts=['华文楷体']
+   TXT: '基础层：三日记录。提升层：与家人协商一条调整办法。拓展层：把约定改得更具体、更可检查。' sizes=[16.0] fonts=['华文楷体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(7.8,3.4) size=(19.8x1.7)
+   TXT: '课后作业' sizes=[22.0] fonts=['黑体']
+[3] PICTURE (13) name='图片 2' pos=(19.8,6.5) size=(12.7x9.7) IMG=image.jpeg (1070, 824)

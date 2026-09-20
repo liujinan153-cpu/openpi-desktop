@@ -151,3 +151,77 @@ export async function testEndpoint({ baseUrl, apiKey, providerId }) {
 		return { ok: false, ms: Date.now() - t0, error: String(e.cause?.code ?? e.message ?? e).slice(0, 120) };
 	}
 }
+/** P76 纯函数：baseUrl 规范化 —— 去首尾空白与尾部斜杠，保证 {base}/models 拼接形态统一 */
+export function normalizeBaseUrl(u) {
+	return String(u ?? "").trim().replace(/\/+$/, "");
+}
+
+/** P76 纯函数：模型列表响应解析（容错：顶层 data/models 数组、裸数组、条目 id/name/model、字符串数组、重复项去重、坏输入返回 []） */
+export function parseModelsBody(body) {
+	try {
+		if (!body || typeof body !== "object") return [];
+		const arr = Array.isArray(body)
+			? body
+			: Array.isArray(body.data) ? body.data
+			: Array.isArray(body.models) ? body.models
+			: [];
+		const out = [];
+		for (const m of arr) {
+			const id = typeof m === "string" ? m : (m?.id ?? m?.name ?? m?.model);
+			if (typeof id === "string" && id.trim()) out.push(id.trim());
+		}
+		return [...new Set(out)];
+	} catch {
+		return [];
+	}
+}
+
+/** P76 纯函数：延迟人话（unit 断言用） */
+export function fmtLatency(ms) {
+	const n = Number(ms);
+	if (!Number.isFinite(n) || n < 0) return "—";
+	return n >= 1000 ? `${(n / 1000).toFixed(1)}s` : `${Math.round(n)}ms`;
+}
+
+/** P76 IO：拉取模型列表（供「测试连接/拉取模型/本地预设探测」共用）。
+ *  OpenAI 兼容 GET {base}/models；local=true 时回落 Ollama 原生 /api/tags。
+ *  纯解析在 parseModelsBody，IO 在此；渲染层经 IPC models:probe 调用。
+ *  返回 { ok, latencyMs, models:[string], error }；local 探测超时 3s。 */
+export async function probeModels({ baseUrl, apiKey, providerId, local } = {}) {
+	const t0 = Date.now();
+	const timeout = local ? 3000 : 8000;
+	const fail = (error) => ({ ok: false, latencyMs: Date.now() - t0, models: [], error: String(error).slice(0, 200) });
+	let base = normalizeBaseUrl(baseUrl);
+	let key = apiKey && apiKey !== "-" ? String(apiKey) : "";
+	if ((!base || !key) && providerId) {
+		const models = readJson(MODELS_JSON, { providers: {} });
+		const auth = readJson(AUTH_JSON, {});
+		const p = models.providers?.[providerId] ?? {};
+		if (!base) base = normalizeBaseUrl(p.baseUrl);
+		if (!key) key = p.apiKey ?? auth[providerId]?.key ?? "";
+	}
+	if (!/^https?:\/\//.test(base)) return fail("baseUrl 需以 http(s):// 开头");
+	const cands = local ? ["/models", "/api/tags"] : ["/models"]; // local：先 OpenAI 兼容，404/失败再试 Ollama 原生
+	let lastErr = "探测失败";
+	for (let i = 0; i < cands.length; i++) {
+		try {
+			const res = await fetch(base + cands[i], {
+				headers: key ? { Authorization: `Bearer ${key}` } : {},
+				signal: AbortSignal.timeout(timeout),
+			});
+			if (!res.ok) {
+				lastErr = `HTTP ${res.status}`;
+				if (i + 1 < cands.length && (res.status === 404 || res.status === 405)) continue; // 换下一个端点形态
+				return fail(lastErr);
+			}
+			const body = await res.json().catch(() => null);
+			const models = parseModelsBody(body);
+			return { ok: true, latencyMs: Date.now() - t0, models, count: models.length, error: "" };
+		} catch (e) {
+			lastErr = e.cause?.code ?? e.message ?? String(e);
+			if (i + 1 < cands.length) continue;
+			return fail(lastErr);
+		}
+	}
+	return fail(lastErr);
+}

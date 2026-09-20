@@ -120,7 +120,9 @@ await sleep(1500);
 /* ①② 流式跟随 + 回底按钮 */
 await ev(`window.__evts.length = 0`);
 await ev(`(() => { sendText("P68-STREAM 慢流来一段"); return 1; })()`);
-await sleep(1200); // 流式中
+	// 等内容溢出视口（>400px）再滚：内容不足时 scrollTop=0 是 no-op 不触发 scroll 事件，stick 不解除会假败（时序竞态，#119 家族）
+// 等内容溢出视口（>400px）再滚：内容不足时 scrollTop=0 是 no-op 不触发 scroll 事件，stick 不解除会假败（时序竞态，#119 家族）
+await ev(`(async () => { for (let i = 0; i < 100; i++) { const c = document.getElementById("chat"); if (c.scrollHeight - c.clientHeight > 400) break; await new Promise(r => setTimeout(r, 100)); } return 1; })()`);
 await ev(`(() => { const c = document.getElementById("chat"); c.scrollTop = 0; return 1; })()`);
 await waitSettled();
 await sleep(300);

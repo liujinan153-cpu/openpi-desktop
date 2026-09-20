@@ -1,0 +1,271 @@
+SLIDE SIZE: 17475200x9753600 (48.5x27.1 cm) slides=21
+
+===== SLIDE 0 layout=Title =====
+[3] PICTURE (13) name='图片 2' pos=(0.0,0.0) size=(48.5x27.1) IMG=image.jpeg (1376, 768)
+[5] AUTO_SHAPE (1) name='textbox 6' pos=(13.7,14.4) size=(29.2x2.0)
+   TXT: '第八课《别让它抢走太多》第2课时' sizes=[40.0, 54.0, 54.0, 54.0, 40.0, 40.0, 40.0] fonts=['宋体']
+[7] AUTO_SHAPE (1) name='textbox 2' pos=(16.9,6.6) size=(17.7x3.2)
+   TXT: '部编版道德与法治四年级上册' sizes=[38.0, 38.0, 38.0] fonts=['宋体']
+   TXT: '第三单元《生活在信息社会》' sizes=[37.0, 37.0, 37.0, 37.0, 37.0, 37.0] fonts=['宋体']
+
+===== SLIDE 1 layout=Title =====
+[16] PICTURE (13) name='picture 16' pos=(22.2,3.6) size=(19.2x19.9) IMG=image.jpeg (1087, 1131)
+[18] AUTO_SHAPE (1) name='textbox 18' pos=(2.5,4.3) size=(12.8x2.3)
+   TXT: '弟弟抱着蓝球热情邀请：“哥哥，下楼 一起打篮球吧 ! ”' sizes=[20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0] fonts=['宋体']
+[20] AUTO_SHAPE (1) name='textbox 20' pos=(2.9,7.0) size=(11.5x1.9)
+   TXT: '哥哥紧盯着电视屏：“别打扰我，我还要看动画片呢! ”' sizes=[20.0, 20.0, 20.0, 20.0, 20.0, 21.0, 21.0, 21.0] fonts=['宋体']
+[22] AUTO_SHAPE (1) name='textbox 22' pos=(3.4,9.3) size=(11.2x1.7)
+   TXT: '思 考 ：沉迷电子屏幕，会让哥哥失去哪些宝贵的时光?' sizes=[19.0, 19.0, 19.0, 19.0, 19.0, 19.0, 19.0, 19.0] fonts=['宋体']
+[26] PICTURE (13) name='picture 26' pos=(42.0,3.6) size=(6.6x22.6) IMG=image.jpeg (374, 1286)
+[2] AUTO_SHAPE (1) name='矩形 1' pos=(44.6,26.2) size=(1.1x0.9)
+[5] TEXT_BOX (17) name='文本框 4' pos=(2.6,2.6) size=(12.8x1.2)
+   TXT: '【观察生活：哥哥错过了什么?】' sizes=[26.0, 26.0, 26.0] fonts=['宋体']
+
+===== SLIDE 2 layout=Title =====
+[28] PICTURE (13) name='picture 28' pos=(33.6,1.4) size=(13.3x18.0) IMG=image.jpeg (756, 1022)
+[30] AUTO_SHAPE (1) name='textbox 30' pos=(34.5,13.0) size=(11.6x3.4)
+   TXT: '视觉隐喻：沙漏中急速流逝的金色时光粒子，象征被屏幕吞噬的户外时光。' sizes=[24.0, 24.0, 24.0, 24.0, 24.0] fonts=['宋体']
+[32] AUTO_SHAPE (1) name='textbox 32' pos=(34.4,2.7) size=(11.0x2.6)
+   TXT: '被抢走的第1份礼物：' sizes=[29.0] fonts=['宋体']
+   TXT: '户外运动与同伴欢笑' sizes=[29.0] fonts=['宋体']
+[34] AUTO_SHAPE (1) name='textbox 34' pos=(34.4,9.4) size=(11.7x2.1)
+   TXT: '健康的代价：缺乏运动导致体质下降，性格变得孤僻悼懒散。' sizes=[24.0, 24.0, 24.0, 24.0] fonts=['宋体']
+[36] AUTO_SHAPE (1) name='textbox 36' pos=(34.4,5.8) size=(11.6x2.1)
+   TXT: '错过的快乐：缺席同伴游戏，失去锻炼身体的好机会。' sizes=[24.0, 24.0, 24.0, 24.0] fonts=['宋体']
+[2] AUTO_SHAPE (1) name='矩形 1' pos=(44.7,26.0) size=(0.8x0.8)
+[3] PICTURE (13) name='图片 2' pos=(44.0,17.4) size=(4.2x4.0) IMG=image.png (1792, 2144)
+[4] TEXT_BOX (17) name='文本框 3' pos=(34.2,17.8) size=(9.8x1.1)
+   TXT: '视频：为什么不能一直看电视' sizes=[20.0] fonts=['宋体']
+[7] PICTURE (13) name='幻灯片缩放定位 6' pos=(44.0,17.8) size=(3.8x3.1) IMG=image.png (626, 510)
+
+===== SLIDE 3 layout=Title =====
+[2] MEDIA (16) name='视频素材：小学生沉迷电视拒绝户外运动情景短片' pos=(0.0,0.0) size=(48.5x27.1)
+
+===== SLIDE 4 layout=Title =====
+[94] PICTURE (13) name='picture 94' pos=(29.0,8.1) size=(10.3x17.8) IMG=image.jpeg (585, 1009)
+[96] PICTURE (13) name='picture 96' pos=(2.5,7.4) size=(21.0x2.0) IMG=image.jpeg (1194, 112)
+[98] AUTO_SHAPE (1) name='textbox 98' pos=(2.9,8.0) size=(17.8x0.9)
+   TXT: '核心反思：屏幕连接了远方，却拉远了最近的亲人!' sizes=[23.0, 23.0] fonts=['宋体']
+[100] AUTO_SHAPE (1) name='textbox 100' pos=(2.1,2.4) size=(17.3x1.1)
+   TXT: '【家庭危机：冷清的客厅与疏离的心】' sizes=[29.0] fonts=['宋体']
+[102] AUTO_SHAPE (1) name='textbox 102' pos=(2.8,4.6) size=(21.3x0.8)
+   TXT: '现象诊断：爸爸刷新闻、妈妈逛电商、孩子玩游戏，一家人零交流。' sizes=[21.0, 21.0] fonts=['宋体']
+[104] AUTO_SHAPE (1) name='textbox 104' pos=(2.7,5.9) size=(18.4x0.8)
+   TXT: '情感损失：缺失温馨的谈心时刻，家庭氛围变得冷漠冰凉。' sizes=[21.0] fonts=['宋体']
+[2] AUTO_SHAPE (1) name='矩形 1' pos=(44.5,25.9) size=(0.8x1.2)
+
+===== SLIDE 5 layout=Title =====
+[3] PICTURE (13) name='图片 2' pos=(0.0,0.0) size=(48.5x27.1) IMG=image.jpeg (1376, 768)
+[5] AUTO_SHAPE (1) name='textbox 68' pos=(32.3,16.9) size=(12.7x2.5)
+   TXT: '自控力下降：大脑习惯高刺激，' sizes=[27.0, 27.0] fonts=['宋体']
+   TXT: '对现实学习生活失去兴趣。' sizes=[27.0, 27.0] fonts=['宋体']
+[7] AUTO_SHAPE (1) name='textbox 70' pos=(32.3,13.2) size=(12.5x2.5)
+   TXT: '睡眠障碍：蓝光抑制褪黑素，' sizes=[28.0, 28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: '引发失眠与白天疲倦。' sizes=[27.0, 27.0] fonts=['宋体']
+[9] AUTO_SHAPE (1) name='textbox 72' pos=(32.3,9.5) size=(12.4x2.4)
+   TXT: '视力危机：长时间盯着屏幕，' sizes=[28.0, 28.0] fonts=['宋体']
+   TXT: '导致眼睛干涩、近视加深。' sizes=[28.0] fonts=['宋体']
+[11] AUTO_SHAPE (1) name='textbox 88' pos=(31.6,4.7) size=(13.7x3.0)
+   TXT: '【健康警报：手机对身心' sizes=[36.0, 36.0, 36.0, 36.0, 36.0, 36.0, 36.0] fonts=['宋体']
+   TXT: '的隐形伤害】' sizes=[35.0] fonts=['宋体']
+[2] PICTURE (13) name='图片 1' pos=(41.6,20.6) size=(4.3x4.2) IMG=image.png (1792, 2144)
+[6] PICTURE (13) name='幻灯片缩放定位 5' pos=(41.6,21.0) size=(4.3x3.5) IMG=image.png (626, 510)
+
+===== SLIDE 6 layout=1_标题幻灯片 =====
+[2] MEDIA (16) name='视频素材：豆豆家庭故事会温馨动画短片' pos=(13.9,2.9) size=(13.0x18.8)
+
+===== SLIDE 7 layout=Title =====
+[40] PICTURE (13) name='picture 40' pos=(17.0,3.7) size=(13.1x4.5) IMG=image.png (746, 256)
+[42] AUTO_SHAPE (1) name='textbox 42' pos=(17.3,4.9) size=(11.1x0.8)
+   TXT: '深夜熬夜刷设备，白天上课瞌睡。' sizes=[21.0] fonts=['宋体']
+[44] AUTO_SHAPE (1) name='textbox 44' pos=(17.3,7.3) size=(11.0x0.8)
+   TXT: '习惯快餐短视频，无法静心阅读。' sizes=[21.0] fonts=['宋体']
+[46] AUTO_SHAPE (1) name='textbox 46' pos=(17.3,6.3) size=(6.6x0.8)
+   TXT: '阅读课外书的时间：' sizes=[21.0] fonts=['宋体']
+[48] AUTO_SHAPE (1) name='textbox 48' pos=(17.3,4.0) size=(5.8x0.8)
+   TXT: '充足睡眠的时间：' sizes=[21.0] fonts=['宋体']
+[50] PICTURE (13) name='picture 50' pos=(3.5,3.8) size=(13.0x4.5) IMG=image.png (738, 255)
+[52] AUTO_SHAPE (1) name='textbox 52' pos=(3.7,7.2) size=(10.2x0.8)
+   TXT: '各刷各的屏幕，家庭沟通变少。' sizes=[21.0] fonts=['宋体']
+[54] AUTO_SHAPE (1) name='textbox 54' pos=(3.7,4.9) size=(8.8x0.8)
+   TXT: '注意力不集中，拖延作业。' sizes=[21.0] fonts=['宋体']
+[56] AUTO_SHAPE (1) name='textbox 56' pos=(3.7,4.0) size=(7.3x0.8)
+   TXT: '学习与写作业的时间：' sizes=[21.0] fonts=['宋体']
+[58] AUTO_SHAPE (1) name='textbox 58' pos=(3.7,6.4) size=(6.6x0.8)
+   TXT: '与父母交流的时间：' sizes=[21.0] fonts=['宋体']
+[60] AUTO_SHAPE (1) name='textbox 60' pos=(3.0,2.5) size=(20.9x1.1)
+   TXT: '【想一想：电子产品还在暗中夺走了什么?】' sizes=[28.0, 28.0, 28.0, 28.0, 28.0, 28.0, 28.0] fonts=['宋体']
+[2] PICTURE (13) name='图片 1' pos=(30.1,6.0) size=(5.5x5.3) IMG=image.png (1792, 2144)
+[4] PICTURE (13) name='图片 3' pos=(10.5,9.8) size=(20.0x2.2) IMG=image.png (719, 538)
+[5] TEXT_BOX (17) name='文本框 4' pos=(11.6,10.1) size=(17.5x1.5)
+   TXT: '视频：长时间看电子产品对身体的伤害' sizes=[28.0] fonts=['宋体']
+[7] PICTURE (13) name='幻灯片缩放定位 6' pos=(30.3,6.7) size=(5.0x4.1) IMG=image.png (626, 510)
+
+===== SLIDE 8 layout=1_标题幻灯片 =====
+[2] MEDIA (16) name='视频素材：长时间看电子产品伤害视力、影响睡眠科普短片' pos=(13.9,2.8) size=(13.1x18.8)
+
+===== SLIDE 9 layout=Title =====
+[108] PICTURE (13) name='picture 108' pos=(29.4,2.3) size=(17.5x10.6) IMG=image.jpeg (994, 604)
+[110] AUTO_SHAPE (1) name='textbox 110' pos=(30.4,7.6) size=(15.3x1.9)
+   TXT: '活动形式：举办家庭故事会、棋牌游戏、户外散' sizes=[21.0, 21.0] fonts=['宋体']
+   TXT: '步谈心。' sizes=[20.0] fonts=['宋体']
+[112] AUTO_SHAPE (1) name='textbox 112' pos=(30.4,5.3) size=(15.3x2.0)
+   TXT: '做法借鉴：放下手机电视，每周设立固定“无电子设备家庭夜”。' sizes=[21.0, 21.0, 20.0] fonts=['宋体']
+[114] AUTO_SHAPE (1) name='textbox 114' pos=(30.4,10.0) size=(15.0x1.9)
+   TXT: '改变成果：拉近亲子距离，收获满满的欢笑与家庭温暖。' sizes=[21.0, 21.0, 21.0, 21.0] fonts=['宋体']
+[116] AUTO_SHAPE (1) name='textbox 116' pos=(29.4,3.5) size=(16.9x0.9)
+   TXT: '【阅读角经验：豆豆一家的无电子设备时光】' sizes=[24.0] fonts=['宋体']
+[118] PICTURE (13) name='picture 118' pos=(34.1,14.5) size=(9.7x7.2) IMG=image.jpeg (551, 410)
+[2] AUTO_SHAPE (1) name='矩形 1' pos=(44.4,26.2) size=(2.1x0.9)
+
+===== SLIDE 10 layout=Title =====
+[3] PICTURE (13) name='图片 2' pos=(0.0,0.0) size=(48.5x27.1) IMG=image.jpeg (1376, 768)
+[5] AUTO_SHAPE (1) name='textbox 124' pos=(1.9,1.9) size=(18.0x1.6)
+   TXT: '做电子产品的主人，不做奴隶' sizes=[28.0] fonts=['宋体']
+[7] AUTO_SHAPE (1) name='textbox 126' pos=(2.5,3.5) size=(18.0x4.1)
+   TXT: '工具属性：电子产品是学习辅助与适度娱乐的工具。' sizes=[22.0, 22.0] fonts=['宋体']
+   TXT: '主动选择：主动留出线下时间，拥抱现实生活的精彩。' sizes=[22.0, 22.0, 22.0] fonts=['宋体']
+   TXT: '视觉隐喻：平衡天秤一端是小巧的手机，另一端是沉甸甸的爱心、书本与运动器材。' sizes=[22.0, 22.0, 22.0, 22.0, 22.0] fonts=['宋体']
+[9] AUTO_SHAPE (1) name='textbox 128' pos=(6.1,6.8) size=(11.3x0.9)
+
+===== SLIDE 11 layout=Title =====
+[136] PICTURE (13) name='picture 136' pos=(5.1,14.1) size=(18.9x2.7) IMG=image.jpeg (1074, 153)
+[138] AUTO_SHAPE (1) name='textbox 138' pos=(7.8,15.2) size=(14.5x0.9)
+   TXT: '明确使用场景：吃饭、睡前、全家聚餐时坚决不碰设备。' sizes=[17.0, 17.0, 17.0, 17.0, 17.0] fonts=['宋体']
+[140] AUTO_SHAPE (1) name='textbox 140' pos=(5.3,10.8) size=(18.9x2.2)
+   TXT: '\t限定使用时长：每天/每周末累计使用时间(网课+娱乐不超限)。' sizes=[17.0, 17.0, 17.0, 17.0, 17.0, 17.0, 17.0, 17.0] fonts=['宋体']
+[142] PICTURE (13) name='picture 142' pos=(5.3,10.9) size=(2.2x2.2) IMG=image.jpeg (123, 123)
+[144] AUTO_SHAPE (1) name='textbox 144' pos=(5.5,18.1) size=(17.7x2.0)
+   TXT: '\t严 格 筛 选 内 容 ：优先看益智科普、健康动画，拒绝不良信息。' sizes=[16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0, 16.0] fonts=['宋体']
+[146] PICTURE (13) name='picture 146' pos=(5.5,18.3) size=(1.7x2.0) IMG=image.jpeg (97, 111)
+[148] AUTO_SHAPE (1) name='textbox 148' pos=(5.0,5.4) size=(18.2x1.6)
+   TXT: '如何制定“使用约定”' sizes=[40.0, 40.0, 40.0] fonts=['宋体']
+[150] AUTO_SHAPE (1) name='textbox 150' pos=(5.6,9.0) size=(18.1x0.9)
+   TXT: '【三大核心法则： 构建清晰有约束力的约定】' sizes=[24.0, 24.0, 24.0] fonts=['宋体']
+
+===== SLIDE 12 layout=Title =====
+[154] AUTO_SHAPE (1) name='textbox 154' pos=(4.2,3.4) size=(14.5x1.8)
+   TXT: '同桌合作设计约定单' sizes=[46.0, 46.0, 46.0] fonts=['宋体']
+[156] AUTO_SHAPE (1) name='textbox 156' pos=(7.0,16.8) size=(12.4x2.1)
+   TXT: '互查互评：条款是否具体?执行是' sizes=[24.0, 24.0] fonts=['宋体']
+   TXT: '否困难?能否互相监督?' sizes=[24.0] fonts=['宋体']
+[158] AUTO_SHAPE (1) name='textbox 158' pos=(7.0,21.3) size=(12.0x2.1)
+   TXT: '教师点评：避免“完全禁止”或“过' sizes=[23.0, 23.0, 23.0, 23.0] fonts=['宋体']
+   TXT: '于宽泛”,确保契约可落地。' sizes=[24.0] fonts=['宋体']
+[160] AUTO_SHAPE (1) name='textbox 160' pos=(3.5,12.8) size=(3.5x1.7)
+   TXT: 'Step 1' sizes=[25.0, 25.0, 25.0] fonts=['宋体']
+[162] AUTO_SHAPE (1) name='textbox 162' pos=(3.5,5.5) size=(15.2x1.0)
+   TXT: '【活动园实践：我和“它”的专属契约】' sizes=[24.0, 24.0] fonts=['宋体']
+[164] AUTO_SHAPE (1) name='textbox 164' pos=(7.0,12.2) size=(12.5x0.9)
+   TXT: '同桌合作：讨论并拟定3条切实可行的家庭电子产品使用规则。' sizes=[24.0, 24.0, 24.0] fonts=['宋体']
+[166] AUTO_SHAPE (1) name='textbox 166' pos=(3.5,17.4) size=(2.9x1.0)
+   TXT: 'Step 2' sizes=[27.0, 27.0, 27.0] fonts=['宋体']
+[168] AUTO_SHAPE (1) name='textbox 168' pos=(3.5,21.9) size=(2.8x1.0)
+   TXT: 'Step 3' sizes=[26.0, 26.0, 26.0] fonts=['宋体']
+
+===== SLIDE 13 layout=Title =====
+[4] PICTURE (13) name='图片 3' pos=(16.2,4.0) size=(15.9x16.2) IMG=image.png (2048, 2048)
+[9] TEXT_BOX (17) name='文本框 8' pos=(17.6,5.2) size=(14.5x2.0)
+   TXT: '课堂总结' sizes=[40.0] fonts=['宋体']
+[13] TEXT_BOX (17) name='文本框 12' pos=(17.0,7.5) size=(14.5x11.0)
+   TXT: '同学们，今天我们懂得电子产品虽有趣，却不能挤占我们运动、陪伴家人、学习休息的时间。豆豆一家的故事告诉我们，放下电子设备才能感受家庭温暖。课后大家要和父母一起制定电子产品使用约定，学会自律管控，多走进现实生活，珍惜和同伴、家人相处的美好时光。' sizes=[28.0] fonts=['宋体']
+
+===== SLIDE 14 layout=Title =====
+[3] PICTURE (13) name='图片 2' pos=(-0.3,-0.1) size=(48.7x27.2) IMG=image.png (824, 527)
+[4] AUTO_SHAPE (1) name='矩形: 圆角 3' pos=(12.0,2.1) size=(17.6x2.5)
+[6] TEXT_BOX (17) name='文本框 5' pos=(12.5,2.3) size=(16.0x2.1)
+   TXT: '【课堂练习】选择题' sizes=[43.65, 43.65, 43.65, 43.65] fonts=['宋体']
+[5] TEXT_BOX (17) name='文本框 4' pos=(3.1,6.0) size=(33.2x16.1)
+   TXT: '1. 好朋友约你下楼跳绳，你正好看动画片，正确的做法是（     ）' sizes=[28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: 'A. 看完这一集再下楼' sizes=[28.0, 28.0] fonts=['宋体']
+   TXT: 'B. 关掉电视，立刻出门和朋友玩耍' sizes=[28.0, 28.0] fonts=['宋体']
+   TXT: 'C. 拒绝朋友，继续在家看电视' sizes=[28.0, 28.0] fonts=['宋体']
+   TXT: '2. 每天使用平板上网课、看动画，累计时长最好不超过（     ）' sizes=[28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: 'A. 2 小时  B. 半小时  C. 5 小时' sizes=[28.0, 28.0, 28.0, 28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: '3. 晚饭全家聚餐时，我们应该（     ）' sizes=[28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: 'A. 边吃饭边刷短视频  B. 放下手机，和家人聊天' sizes=[28.0, 28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: 'C. 抱着平板边吃边看' sizes=[28.0, 28.0] fonts=['宋体']
+[7] AUTO_SHAPE (1) name='矩形 6' pos=(31.2,5.6) size=(1.9x2.6)
+   TXT: 'B' sizes=[54.0] fonts=['方正粗黑宋简体']
+[8] AUTO_SHAPE (1) name='矩形 7' pos=(30.2,12.5) size=(1.9x2.6)
+   TXT: 'A' sizes=[54.0] fonts=['方正粗黑宋简体']
+[9] AUTO_SHAPE (1) name='矩形 8' pos=(19.5,16.4) size=(1.9x2.6)
+   TXT: 'B' sizes=[54.0] fonts=['方正粗黑宋简体']
+
+===== SLIDE 15 layout=Title =====
+[7] GROUP (6) name='组合 6' pos=(18.1,1.6) size=(17.6x2.5)
+  [8] AUTO_SHAPE (1) name='矩形: 圆角 7' pos=(18.1,1.5) size=(17.8x2.6)
+  [9] TEXT_BOX (17) name='文本框 8' pos=(18.6,1.7) size=(16.1x2.1)
+     TXT: '【课堂练习】判断题' sizes=[43.65, 43.65, 43.65, 43.65] fonts=['宋体']
+[4] TEXT_BOX (17) name='文本框 3' pos=(14.8,6.3) size=(24.3x14.2)
+   TXT: '1. 只要写完作业，就可以无限制看电视、玩手机。（    ）' sizes=[28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: '2. 每天晚上留出半小时，全家不碰电子产品，一起聊天，能增进家人感情。（    ）' sizes=[28.0, 28.0, 28.0] fonts=['宋体']
+   TXT: '3. 周末可以一整天抱着手机玩游戏，不用出门活动。（    ）' sizes=[28.0, 28.0, 28.0] fonts=['宋体']
+[5] AUTO_SHAPE (1) name='矩形 4' pos=(15.7,8.7) size=(2.4x2.6)
+   TXT: '×' sizes=[54.0] fonts=['华文琥珀']
+[6] AUTO_SHAPE (1) name='矩形 5' pos=(26.9,13.4) size=(2.4x2.6)
+   TXT: '√' sizes=[54.0] fonts=['华文琥珀']
+[10] AUTO_SHAPE (1) name='矩形 9' pos=(15.7,18.2) size=(2.4x2.6)
+   TXT: '×' sizes=[54.0] fonts=['华文琥珀']
+
+===== SLIDE 16 layout=Title =====
+[3] PICTURE (13) name='图片 2' pos=(0.0,0.0) size=(48.5x27.1) IMG=image.jpeg (1376, 768)
+[5] TEXT_BOX (17) name='文本框 4' pos=(27.7,4.9) size=(16.9x5.4)
+   TXT: '情境：晚上妈妈想和你聊聊学校的趣事，你正在刷短视频舍不得放下手机。你会怎么做？' sizes=[28.0] fonts=['宋体']
+[7] TEXT_BOX (17) name='文本框 6' pos=(27.3,11.5) size=(16.9x7.2)
+   TXT: '参考答案：立刻放下手机，认真听妈妈聊天，主动和妈妈分享学校发生的事，约定聊天结束后再短暂使用电子产品。' sizes=[28.0] fonts=['宋体']
+[4] AUTO_SHAPE (1) name='矩形: 圆角 3' pos=(28.8,1.0) size=(14.9x2.1)
+[8] TEXT_BOX (17) name='文本框 7' pos=(29.1,1.2) size=(14.6x1.6)
+   TXT: '【课堂练习】情境题1' sizes=[32.0, 32.0, 32.0, 32.0, 32.0] fonts=['宋体']
+
+===== SLIDE 17 layout=Title =====
+[3] TEXT_BOX (17) name='文本框 2' pos=(3.4,6.6) size=(17.5x5.4)
+   TXT: '情境：周末你写完作业，想长时间看动画片，爸爸提醒你要出门打球。你怎么安排时间？' sizes=[28.0] fonts=['宋体']
+[5] TEXT_BOX (17) name='文本框 4' pos=(3.4,13.5) size=(17.1x5.4)
+   TXT: '参考答案：和爸爸约定看 20 分钟动画片，看完后放下电视，出门和爸爸打球运动，平衡娱乐和运动时间。' sizes=[28.0] fonts=['宋体']
+[4] AUTO_SHAPE (1) name='矩形: 圆角 3' pos=(4.9,2.9) size=(14.9x2.1)
+[7] TEXT_BOX (17) name='文本框 6' pos=(5.2,3.1) size=(14.6x1.6)
+   TXT: '【课堂练习】情境题2' sizes=[32.0, 32.0, 32.0, 32.0, 32.0] fonts=['宋体']
+
+===== SLIDE 18 layout=Title =====
+[4] TEXT_BOX (17) name='文本框 3' pos=(6.3,4.0) size=(17.3x2.6)
+   TXT: '板书设计' sizes=[54.0] fonts=['宋体']
+[6] TEXT_BOX (17) name='文本框 5' pos=(12.1,18.8) size=(24.3x2.2)
+   TXT: '3. 我的约定：自律控时长、选健康内容、多线下生活' sizes=[28.0] fonts=['宋体']
+[5] TEXT_BOX (17) name='文本框 4' pos=(11.8,6.5) size=(24.3x1.9)
+   TXT: '8.2 我和它有个 “约定”' sizes=[40.0, 40.0] fonts=['宋体']
+[8] TEXT_BOX (17) name='文本框 7' pos=(12.1,9.6) size=(23.9x4.6)
+   TXT: '1. 电子产品会抢走什么？' sizes=[28.0] fonts=['宋体']
+   TXT: '玩耍时间｜亲子交流时间｜学习、休息、运动时间' sizes=[28.0] fonts=['宋体']
+[10] TEXT_BOX (17) name='文本框 9' pos=(12.1,14.2) size=(23.9x4.6)
+   TXT: '2. 榜样：豆豆家庭故事会' sizes=[28.0] fonts=['宋体']
+   TXT: '放下电子设备，珍惜线下陪伴' sizes=[28.0] fonts=['宋体']
+
+===== SLIDE 19 layout=Title =====
+[274] PICTURE (13) name='picture 274' pos=(34.7,5.5) size=(6.0x9.8) IMG=image.jpeg (342, 557)
+[276] AUTO_SHAPE (1) name='textbox 276' pos=(5.4,10.1) size=(16.9x2.4)
+   TXT: '实践任务：带上课堂设计的《约定单》,与' sizes=[27.0, 27.0] fonts=['宋体']
+   TXT: '父母召开家庭会议。' sizes=[26.0] fonts=['宋体']
+[278] AUTO_SHAPE (1) name='textbox 278' pos=(5.4,17.1) size=(17.0x2.4)
+   TXT: '习惯养成：坚持执行一周，记录自己的自控' sizes=[27.0, 27.0, 27.0, 27.0] fonts=['宋体']
+   TXT: '心得与家庭变化。' sizes=[26.0] fonts=['宋体']
+[280] AUTO_SHAPE (1) name='textbox 280' pos=(5.4,13.6) size=(17.0x2.4)
+   TXT: '共同签署：完善细节，全员签字，贴在客厅' sizes=[27.0, 27.0, 27.0, 27.0] fonts=['宋体']
+   TXT: '显眼位置。' sizes=[25.0] fonts=['宋体']
+[282] AUTO_SHAPE (1) name='textbox 282' pos=(5.4,20.7) size=(17.0x2.4)
+   TXT: '拓展常识：坚持“20-20-20”护眼法则，做健康有节制的信息时代好少年!' sizes=[26.0, 27.0, 27.0] fonts=['宋体']
+[284] AUTO_SHAPE (1) name='textbox 284' pos=(2.8,2.5) size=(15.0x1.8)
+   TXT: '课后实践与家庭延伸' sizes=[47.0] fonts=['宋体']
+[286] AUTO_SHAPE (1) name='textbox 286' pos=(3.4,7.7) size=(18.0x1.3)
+   TXT: '【课后作业：让“ 约定”在家庭落地】' sizes=[30.0, 30.0, 30.0, 30.0, 30.0] fonts=['宋体']
+[288] PICTURE (13) name='picture 288' pos=(30.0,6.9) size=(3.7x3.7) IMG=image.jpeg (209, 210)
+[2] AUTO_SHAPE (1) name='矩形 1' pos=(44.7,26.2) size=(0.5x0.5)
+
+===== SLIDE 20 layout=Title =====
+[4] AUTO_SHAPE (1) name='textbox 294' pos=(18.8,12.8) size=(11.0x2.4)
+   TXT: '拒绝沉迷 · 自律生活' sizes=[26.0, 26.0, 26.0, 26.0, 26.0] fonts=['宋体']
+   TXT: '做电子产品的主人，拥抱无' sizes=[26.0] fonts=['宋体']
+[6] AUTO_SHAPE (1) name='textbox 296' pos=(17.7,10.9) size=(13.1x1.4)
+   TXT: '【谢谢聆听·下课!】' sizes=[36.0, 36.0, 36.0] fonts=['宋体']
+[8] AUTO_SHAPE (1) name='textbox 300' pos=(20.3,16.7) size=(7.9x1.0)
+   TXT: '比精彩的现实世界!' sizes=[26.0] fonts=['宋体']

@@ -10,23 +10,48 @@ import os from "node:os";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import https from "node:https";
-import { execFileSync, execFile, spawn } from "node:child_process";
+import { execFileSync, execFile, spawn, spawnSync } from "node:child_process";
 import { createAgentProxy } from "./agent-proxy.mjs"; // P43：AgentHost 实例在 agent-worker 子进程，此处仅代理
 import { getAgentDir } from "@earendil-works/pi-coding-agent"; // P47 设置文件定位
 import { cleanupExpired, sandboxRoot } from "./workspace-store.mjs";
 import { SessionIndex } from "./sessions-index.mjs";
 import { detectImportSources, importAllClaude, importAllCodex, importAllOpenCode } from "./session-import.mjs"; // P64⑧/P69 外部会话导入
+import { initLogger, collectLogBundle } from "./app-logger.mjs"; // P71：主进程日志 + 导出日志包
+import { mergeChanges, parseNameStatus, parseNumstat, parsePorcelain } from "./review-changes.mjs"; // P72b：会话改动审阅——git 输出解析纯函数
+import { lastCheckpointId } from "./git-checkpoint.mjs"; // P72b：审阅基线=快照链最新提交（P27）
 import { ensureShellEnv } from "./shell-env.mjs";
 import { initUpdater, checkUpdate, downloadUpdate, installUpdate, openUpdaterConfig, getSnapshot, UPDATER_CFG, feedConfigured } from "./updater.mjs";
-import { getConfig, saveProvider, deleteProvider, saveKey, testEndpoint, LOCAL_PRESETS } from "./config-store.mjs";
+import { getConfig, saveProvider, deleteProvider, saveKey, testEndpoint, probeModels, LOCAL_PRESETS } from "./config-store.mjs"; // P76：+probeModels
 import { installElectronSecurity } from "./electron-security.mjs";
 import { expandHome, resolveAllowedPath, resolveWorkspacePath } from "./path-policy.mjs";
+import { BUILTIN_SUBAGENT_META, parseSubagentJsonFile, sanitizeSubagentFilename } from "./p73-logic.mjs"; // P73 子智能体管理
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RENDERER_FILE = path.join(__dirname, "..", "renderer", "index.html");
 const DEFAULT_WORKSPACE = path.join(os.homedir(), "openpi-workspace");
 const SESSIONS_ROOT = process.env.OPENPI_SESSIONS_ROOT || path.join(os.homedir(), ".pi", "agent", "sessions"); // env 覆盖供 e2e 隔离
 
+/* ---- P71：主进程日志（~/.pi/agent/logs/main.log），模块加载即初始化，越早越好 ----
+ * initLogger 会拦截 console.error/warn 双写文件并兜底 uncaughtException/unhandledRejection */
+const AGENT_DIR = path.join(os.homedir(), ".pi", "agent"); // 与 SESSIONS_ROOT/audit 等既有路径保持同一套算法
+
+const LOG_DIR = path.join(AGENT_DIR, "logs");
+const logger = initLogger(LOG_DIR);
+
+/** P73：读禁用子智能体清单（openpi-settings.json 的 disabledSubagents；无设置文件/字段缺失 = 空数组） */
+function readDisabledSubagents() {
+	try {
+		const s = JSON.parse(fs.readFileSync(path.join(getAgentDir(), "openpi-settings.json"), "utf8"));
+		return Array.isArray(s.disabledSubagents) ? s.disabledSubagents.map(String) : [];
+	} catch { return []; }
+}
+let fatalShown = false; // 防异常风暴导致弹窗循环
+process.on("uncaughtException", (err) => {
+	// P71：initLogger 注册监听后会吞掉 Electron 默认错误弹窗，这里补一个可见提示（每会话一次）
+	if (fatalShown) return;
+	fatalShown = true;
+	try { dialog.showErrorBox("OpenPi 遇到未处理错误", String(err?.stack ?? err)); } catch { /* app 未就绪等场景忽略 */ }
+});
 /** webContents.id -> AgentHost */
 const hosts = new Map();
 
@@ -268,6 +293,14 @@ app.whenReady().then(async () => {
 		);
 		return { ok: true, dir };
 	});
+	/* ---- P73 第二批：项目级技能目录（workspace/.agents/skills，只读扫描展示）---- */
+	// 与 skills:list 的全局目录语义分离：读不到（无 workspace）返回 { ok:false } 不报错
+	ipcMain.handle("skills:projectList", (e) => {
+		const ws = hostOf(e).workspace;
+		if (!ws) return { ok: false, reason: "当前不在项目中" };
+		const dir = path.join(ws, ".agents", "skills");
+		return { ok: true, dir, exists: fs.existsSync(dir), skills: scanSkillsDir(dir) };
+	});
 
 	/* ---- P25：内置办公技能（docx/pdf/pptx/xlsx，随包分发，启动自动部署）---- */
 	// 技能源自带 LICENSE（Z.ai 专有：仅限个人/教育/非商业使用），随免费安装包非商业分发，LICENSE.txt 原样保留；
@@ -507,6 +540,21 @@ app.whenReady().then(async () => {
 		const abs = resolveWorkspacePath(hostOf(e).workspace, file, { mustExist: true });
 		return shell.openPath(abs);
 	});
+	// P74：开发者模式——渲染层开关控制本窗口 DevTools 独立窗口开/关（仅影响发起调用的窗口）
+	ipcMain.handle("devtools:toggle", (e, on) => {
+		const win = BrowserWindow.fromWebContents(e.sender);
+		if (!win || win.isDestroyed()) return false;
+		if (on) win.webContents.openDevTools({ mode: "detach" });
+		else win.webContents.closeDevTools();
+		return true;
+	});
+	// P74：信息页「应用」卡——运行时版本号（app 版本另有 update:snapshot 同源，这里补 electron/chrome）
+	ipcMain.handle("app:versions", () => ({
+		app: app.getVersion(),
+		electron: process.versions.electron ?? "—",
+		chrome: process.versions.chrome ?? "—",
+		node: process.versions.node ?? "—",
+	}));
 
 	// ---- IPC: 配置中心（只写 Pi 标准文件，全窗口共享） ----
 	ipcMain.handle("config:get", () => getConfig());
@@ -515,6 +563,7 @@ app.whenReady().then(async () => {
 	ipcMain.handle("config:save-key", (_e, id, key) => saveKey(String(id), String(key)));
 	ipcMain.handle("config:test", (_e, opts) => testEndpoint(opts ?? {}));
 	ipcMain.handle("config:preset", (_e, key) => LOCAL_PRESETS[key] ?? null);
+	ipcMain.handle("models:probe", (_e, opts) => probeModels(opts ?? {})); // P76：模型列表探测（测试连接/拉取模型/本地预设共用）
 	ipcMain.handle("agent:refresh-models", (e) => hostOf(e).refreshModels());
 
 	// ---- IPC: M3 内核版本检查 ----
@@ -564,6 +613,46 @@ app.whenReady().then(async () => {
 		}
 		return { ok: true };
 	});
+	/* ---- P72b：会话改动审阅面板（基线=会话最新快照，无则 HEAD；非 git 仓库/无工作区返回 ok:false，渲染层显示空态不报错） ---- */
+	// 审查修复：审阅 diff 的 git 调用统一关掉路径引号转义，否则中文文件名被 git 转成八进制转义串，解析/二次查询全链路坏
+	const gitReview = (h, args) => execFileSync("git", ["-c", "core.quotePath=false", ...args], { cwd: h.workspace, windowsHide: true, timeout: 15000, maxBuffer: 10 * 1024 * 1024 }).toString();
+	ipcMain.handle("review:changes", (e) => {
+		const host = hostOf(e);
+		if (!host.workspace) return { ok: false, reason: "当前会话无工作区" };
+		try {
+			const base = reviewBaseline(host);
+			const numstat = gitReview(host, ["diff", "--numstat", base]);
+			const nameStatus = gitReview(host, ["diff", "--name-status", base]);
+			const porcelain = gitReview(host, ["status", "--porcelain"]);
+			return { ok: true, base, files: mergeChanges(parseNameStatus(nameStatus), parseNumstat(numstat), parsePorcelain(porcelain)) };
+		} catch (err) {
+			return { ok: false, reason: String(err?.message ?? err).slice(0, 200) };
+		}
+	});
+	ipcMain.handle("review:diff", (e, file) => {
+		const host = hostOf(e);
+		const f = String(file ?? "").trim();
+		if (!host.workspace || !f) return { ok: false, reason: "无效的文件或会话无工作区" };
+		try {
+			const base = reviewBaseline(host);
+			let text = gitReview(host, ["diff", base, "--", f]);
+			if (!text.trim()) {
+				// diff 为空：未跟踪新文件（git diff 不含 ??）给占位说明，真无差异也给一句，避免空白弹窗
+				const st = gitCmd(host, ["status", "--porcelain", "--", f]).trim();
+				text = st.startsWith("??") ? "（新文件，未被 git 跟踪，暂无逐行 diff）\n" : "（与基线无差异）\n";
+			}
+			let truncated = false;
+			if (text.length > 200 * 1024) {
+				// >200KB 触发截断：先按行取前 500 行，仍超限再按字符硬切（审查修复：压缩单行 diff 500 行也可能几 MB）
+				truncated = true;
+				text = text.split("\n").slice(0, 500).join("\n");
+				if (text.length > 200 * 1024) text = text.slice(0, 200 * 1024);
+				text += "\n…（diff 过大，已截断显示）";
+			}
+		} catch (err) {
+			return { ok: false, reason: String(err?.message ?? err).slice(0, 200) };
+		}
+	});
 	ipcMain.handle("sessions:search", (e, q) => {
 		// P44：FTS5 引擎优先；搜索前轻量增量同步（stat 比对，变更才重索引；顺带 prune 已删文件）
 		const hit = (() => {
@@ -612,6 +701,77 @@ app.whenReady().then(async () => {
 		const removed = lines.length - kept.length;
 		if (removed > 0) fs.writeFileSync(file, kept.join("\n"), "utf8");
 		return { ok: true, removed };
+	});
+	/* ---- P73：子智能体管理（内置角色展示 + ~/.pi/agent/subagents 自定义角色 CRUD + 禁用开关）---- */
+	ipcMain.handle("subagents:list", () => {
+		const dir = path.join(getAgentDir(), "subagents");
+		const disabled = readDisabledSubagents(); // P73：禁用清单（openpi-settings.json 的 disabledSubagents）
+		const builtin = BUILTIN_SUBAGENT_META.map((r) => ({ ...r, builtin: true, disabled: disabled.includes(r.id) }));
+		const customs = [];
+		try {
+			for (const f of fs.readdirSync(dir)) {
+				if (!f.endsWith(".json")) continue;
+				try {
+					const def = parseSubagentJsonFile(f, fs.readFileSync(path.join(dir, f), "utf8"));
+					if (def) customs.push({ ...def, file: path.join(dir, f), disabled: disabled.includes(def.id) });
+				} catch { /* 单文件读失败跳过 */ }
+			}
+		} catch { /* 目录不存在 = 空 */ }
+		return { builtin, customs, dir };
+	});
+	ipcMain.handle("subagents:save", (e, payload = {}) => {
+		const dir = path.join(getAgentDir(), "subagents");
+		const name = String(payload.name ?? "").trim();
+		if (!name) throw new Error("名称必填");
+		const id = sanitizeSubagentFilename(name);
+		fs.mkdirSync(dir, { recursive: true });
+		// 编辑时若改名（新文件名 ≠ 旧文件名），删旧文件避免留下孤儿角色
+		const oldId = typeof payload.id === "string" ? sanitizeSubagentFilename(payload.id) : "";
+		if (oldId && oldId !== id) { try { fs.unlinkSync(path.join(dir, `${oldId}.json`)); } catch { /* 旧文件不存在 */ } }
+		// 审查修复：不同原名 sanitize 后可能同 id（如 a/b 与 a:b），落点已占用且非编辑本身时明确报错，防静默覆盖丢角色
+		const target = path.join(dir, `${id}.json`);
+		if (oldId !== id && fs.existsSync(target)) throw new Error(`已存在同名角色：${id}`);
+		const rec = {
+			name,
+			desc: String(payload.desc ?? "").trim(),
+			tools: Array.isArray(payload.tools) ? payload.tools.map((t) => String(t).trim()).filter(Boolean) : [],
+			prefix: String(payload.prefix ?? ""),
+		};
+		const file = path.join(dir, `${id}.json`);
+		fs.writeFileSync(file, JSON.stringify(rec, null, "\t"), "utf8");
+		return { ok: true, id, file };
+	});
+	ipcMain.handle("subagents:delete", (e, id) => {
+		const file = path.join(getAgentDir(), "subagents", `${sanitizeSubagentFilename(String(id ?? ""))}.json`);
+		let removed = false;
+		try { fs.unlinkSync(file); removed = true; } catch { /* 不存在 = 幂等成功 */ }
+		return { ok: true, removed, file };
+	});
+	ipcMain.handle("subagents:toggle", (e, { id, disabled } = {}) => {
+		const key = String(id ?? "").trim();
+		if (!key) throw new Error("缺少角色 id");
+		const p = path.join(getAgentDir(), "openpi-settings.json");
+		let cur = {};
+		try { cur = JSON.parse(fs.readFileSync(p, "utf8")); } catch { /* 首次 */ }
+		const set = new Set(Array.isArray(cur.disabledSubagents) ? cur.disabledSubagents.map(String) : []);
+		if (disabled) set.add(key); else set.delete(key);
+		const next = { ...cur, disabledSubagents: [...set] };
+		fs.writeFileSync(p, JSON.stringify(next, null, 2));
+		return { ok: true, disabledSubagents: next.disabledSubagents };
+	});
+	/* ---- P73：全局指令（~/.pi/agent/AGENTS.md，优先于项目指令生效；写回前备份一次 .bak 防手抖）---- */
+	ipcMain.handle("agents:global-read", () => {
+		const p = path.join(getAgentDir(), "AGENTS.md");
+		let text = "";
+		try { text = fs.readFileSync(p, "utf8"); } catch { /* 不存在 = 空串 */ }
+		return { path: p, text };
+	});
+	ipcMain.handle("agents:global-write", (e, text) => {
+		const p = path.join(getAgentDir(), "AGENTS.md");
+		fs.mkdirSync(getAgentDir(), { recursive: true });
+		try { fs.copyFileSync(p, `${p}.bak`); } catch { /* 原文件不存在 = 无需备份 */ }
+		fs.writeFileSync(p, String(text ?? ""), "utf8");
+		return { ok: true, path: p, backup: `${p}.bak` };
 	});
 	ipcMain.handle("git:log", (e) => gitCmd(hostOf(e), ["log", "--oneline", "-10"]));
 
@@ -690,6 +850,17 @@ app.whenReady().then(async () => {
 	/* ---- P28：MCP 服务器状态 ---- */
 	ipcMain.handle("mcp:status", (e) => hostOf(e).mcpStatus()); // P43：经 worker（避免 main 双连接）
 	ipcMain.handle("mcp:reconnect", async (e) => hostOf(e).mcpRefresh()); // P43：经 worker
+	// P73：打开/创建 mcp.json——不存在时落一份对齐 Claude Desktop 格式的最小模板，再交系统默认编辑器打开
+	ipcMain.handle("mcp:ensure-config", () => {
+		const p = path.join(getAgentDir(), "mcp.json");
+		let created = false;
+		if (!fs.existsSync(p)) {
+			const tpl = { mcpServers: { "example-stdio": { command: "node", args: ["server.js"], env: {} } } };
+			fs.writeFileSync(p, JSON.stringify(tpl, null, "\t"), "utf8");
+			created = true;
+		}
+		return { ok: true, path: p, created };
+	});
 
 	/* ---- P30：后台并行任务 ---- */
 	ipcMain.handle("task:start", async (e, prompt) => hostOf(e).startBackground(String(prompt ?? "")));
@@ -723,6 +894,47 @@ app.whenReady().then(async () => {
 		fs.mkdirSync(dir, { recursive: true });
 		await shell.openPath(dir);
 		return true;
+	});
+
+	/* ---- P71：一键导出日志包（日志 + 脱敏 settings + 环境信息；绝不包含 auth.json / sessions） ---- */
+	ipcMain.handle("logs:export", async (e) => {
+		const now = new Date();
+		const p2 = (n) => String(n).padStart(2, "0");
+		const stamp = `${now.getFullYear()}${p2(now.getMonth() + 1)}${p2(now.getDate())}-${p2(now.getHours())}${p2(now.getMinutes())}`;
+		const r = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), {
+			title: "导出日志包",
+			defaultPath: path.join(app.getPath("downloads"), `OpenPi-日志包-${stamp}.zip`),
+			filters: [{ name: "Zip", extensions: ["zip"] }],
+		});
+		if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+		const entries = collectLogBundle({
+			piAgentDir: AGENT_DIR,
+			appInfo: { version: app.getVersion(), electron: process.versions.electron, node: process.versions.node, platform: process.platform },
+		});
+		// 写临时目录 → PowerShell Compress-Archive 压包 → 清理；压包失败降级为同名文件夹留在目标目录
+		const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "openpi-logs-"));
+		try {
+			for (const f of entries) fs.writeFileSync(path.join(tmp, f.name), f.content);
+			const zip = r.filePath;
+			const esc = (s) => String(s).replace(/'/g, "''"); // PowerShell 单引号转义（路径含空格/单引号安全）
+			const psCmd = `Compress-Archive -Path '${esc(tmp)}\\*' -DestinationPath '${esc(zip)}' -Force`;
+			const res = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", psCmd], { timeout: 30000, windowsHide: true });
+			if (res.status === 0 && fs.existsSync(zip)) {
+				logger.log(`[logs-export] 已导出日志包: ${zip}`);
+				return { ok: true, path: zip };
+			}
+			// 降级：压包失败 → 日志文件夹复制到用户选的目录（cpSync 兼容跨盘，rename 会 EXDEV）；
+			// 同名已存在则加序号，绝不 rmSync 用户目录里的既有文件夹
+			logger.error(`[logs-export] Compress-Archive 失败(status=${res.status})，降级为文件夹: ${String(res.stderr ?? "").slice(0, 300)}`);
+			const base = zip.replace(/\.zip$/i, "");
+			let folder = base;
+			for (let i = 2; fs.existsSync(folder); i++) folder = `${base}-${i}`;
+			fs.cpSync(tmp, folder, { recursive: true });
+			shell.showItemInFolder(folder);
+			return { ok: true, path: folder, fallback: true };
+		} finally {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		}
 	});
 
 	/* ---- P27：快照回滚 + Git 分支保护 + @ 文件列表 ---- */
@@ -978,6 +1190,16 @@ function gitDiffFile(host, file, untracked) {
 		return `--- /dev/null\n+++ b/${rel}\n@@ -0,0 +1,${shown.length} 新文件 @@\n${shown.map((l) => "+" + l).join("\n")}${note}`;
 	}
 	return gitCmd(host, ["diff", "HEAD", "--", rel]);
+}
+
+/** P72b：会话改动审阅基线——快照链（refs/openpi/checkpoints）最新提交；无快照回退 HEAD。
+ *  审查修复：原实现误调 host.listCheckpoints()（那是 P53 文件快照计数，不是提交链），恒回退 HEAD。 */
+function reviewBaseline(host) {
+	try {
+		const id = String(lastCheckpointId(host.workspace) ?? "").trim();
+		if (/^[0-9a-f]{7,40}$/i.test(id)) return id;
+	} catch { /* 快照链不可用 → HEAD */ }
+	return "HEAD";
 }
 
 /** 还原单文件改动：已跟踪走 checkout HEAD；未跟踪/新增移入回收站（可恢复） */

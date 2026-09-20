@@ -24,6 +24,7 @@ const state = {
 	cur: null, // 当前助手消息缓冲 { root, bodyEl, cursor, text, thinkingEl, thinkingText }
 	tools: new Map(), // toolCallId -> { card, outEl, out, st }
 	queue: { steering: 0, followUp: 0 },
+	subagentCards: new Map(), // P72 交付1：worker.id → 聊天流内嵌协作卡 rec
 	usageTotal: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
 	sessions: [],
 	collapsed: new Set(), // 侧栏折叠的项目 cwd
@@ -200,7 +201,7 @@ function mountFileCards(rootEl) {
 	if (!rootEl || !rootEl.querySelector) return;
 	const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
 		acceptNode: (n) =>
-			n.parentElement?.closest("pre, .fcard, .thinking, .work-list, .sysline")
+			n.parentElement?.closest("pre, .fcard, .thinking, .work-list, .steps-body, .subagent-card, .sysline")
 				? NodeFilter.FILTER_REJECT
 				: NodeFilter.FILTER_ACCEPT,
 	});
@@ -308,30 +309,70 @@ function newAssistantBubble() {
 	chat.appendChild(el);
 	pinLiveBar();
 	scrollBottom();
-	state.cur = { root: el, bodyEl: body, cursor, text: "", thinkingEl: null, thinkingText: "", startTs: Date.now() };
+	// P75：segStart=当前交付段在 c.text 中的起点（工具卡出现时，此前文本定级为「中间叙述」入过程区）
+	state.cur = { root: el, bodyEl: body, cursor, text: "", segStart: 0, thinkingEl: null, thinkingText: "", startTs: Date.now() };
+	state.turnAssistantEls = state.turnAssistantEls ?? [];
+	state.turnAssistantEls.push(el); // P75 修复：追踪本轮 assistant 气泡，自动重试时折叠失败尝试（防「一问两答」观感）
 }
 
-/** zcode 风：消息完成后，把本轮所有工具卡折叠成「已工作 N 秒 ›」一行 */
-function collapseTools(c) {
-	const tools = [...c.bodyEl.querySelectorAll(":scope > .tool")];
-	if (!tools.length) return;
-	const secs = Math.max(1, Math.round((Date.now() - (c.startTs ?? Date.now())) / 1000));
+/** P72 交付2：过程时间线——同一条消息内连续工具调用聚进一个可折叠容器（「⚙ 处理中 · N 个步骤」）。
+    明细就是现有工具卡本身，聚合条只是它们的可折叠容器头；streaming 中默认展开，消息完成后折叠（见 collapseTools）。 */
+function ensureStepsGroup(c) {
+	if (c.stepsGroup) return c.stepsGroup;
 	const wrap = document.createElement("div");
-	wrap.className = "work";
-	const bar = document.createElement("button");
-	bar.className = "work-bar";
-	bar.innerHTML = `<span class="w-ic"><i data-lucide="settings"></i></span><span class="w-tx">已工作 ${secs} 秒 · ${tools.length} 次工具调用</span><span class="chev">›</span>`;
-	const list = document.createElement("div");
-	list.className = "work-list";
-	list.classList.add("hidden");
-	bar.addEventListener("click", () => {
-		list.classList.toggle("hidden");
-		bar.querySelector(".chev").textContent = list.classList.contains("hidden") ? "›" : "⌄";
+	wrap.className = "steps-group";
+	const head = document.createElement("button");
+	head.type = "button";
+	head.className = "steps-head";
+	head.classList.add("live"); // P75：流式期间轮次条脉冲（collapseTools 完成时撤下）
+	head.innerHTML = `<span class="sg-ic"><i data-lucide="settings"></i></span><span class="sg-tx"></span><span class="chev">⌄</span>`;
+	const body = document.createElement("div");
+	body.className = "steps-body";
+	head.addEventListener("click", () => {
+		wrap.classList.toggle("collapsed");
+		head.querySelector(".chev").textContent = wrap.classList.contains("collapsed") ? "›" : "⌄";
 	});
-	wrap.append(bar, list);
-	c.bodyEl.after(wrap);
-	list.append(...tools);
+	wrap.append(head, body);
+	c.bodyEl.appendChild(wrap);
+	c.stepsGroup = wrap;
+	c.stepsTx = head.querySelector(".sg-tx");
+	c.stepsBody = body;
+	c.stepsCount = 0;
+	return wrap;
 }
+
+	/** P75：轮次折叠条（升级 P72 steps-group 收起 + 旧 work 条）——消息完成后定格
+	    「已工作 2分47秒 · N 个步骤」并默认收起（对标 ChatGPT Desktop：用时条在上、交付正文在下） */
+	function collapseTools(c) {
+		// P72 交付2/P75：工具卡已被 .steps-group 聚合 → 折叠聚合条本身，不再另起 work 条
+		if (c.stepsGroup) {
+			const gsecs = Math.max(1, Math.round((Date.now() - (c.startTs ?? Date.now())) / 1000));
+			c.stepsTx.textContent = P72.turnBarLabel(c.stepsCount ?? 0, gsecs, true);
+			c.stepsGroup.querySelector(".steps-head").classList.remove("live"); // P75：撤流式脉冲
+			c.stepsGroup.classList.add("collapsed"); // 轮次完成默认收起（点击条展开过程区）
+			c.stepsGroup.querySelector(".chev").textContent = "›";
+			c.bodyEl.before(c.stepsGroup); // P75：轮次条移到交付正文上方
+			return;
+		}
+		const tools = [...c.bodyEl.querySelectorAll(":scope > .tool")];
+		if (!tools.length) return;
+		const secs = Math.max(1, Math.round((Date.now() - (c.startTs ?? Date.now())) / 1000));
+		const wrap = document.createElement("div");
+		wrap.className = "work";
+		const bar = document.createElement("button");
+		bar.className = "work-bar";
+		bar.innerHTML = `<span class="w-ic"><i data-lucide="settings"></i></span><span class="w-tx">${P72.turnBarLabel(tools.length, secs, true)}</span><span class="chev">›</span>`;
+		const list = document.createElement("div");
+		list.className = "work-list";
+		list.classList.add("hidden");
+		bar.addEventListener("click", () => {
+			list.classList.toggle("hidden");
+			bar.querySelector(".chev").textContent = list.classList.contains("hidden") ? "›" : "⌄";
+		});
+		wrap.append(bar, list);
+		c.bodyEl.before(wrap); // P75：与轮次条同位（交付正文上方）
+		list.append(...tools);
+	}
 
 function appendText(delta) {
 	if (!state.cur) newAssistantBubble();
@@ -344,15 +385,17 @@ function appendText(delta) {
 	scrollBottom();
 }
 
-/** 流式期间: 纯文本 + 光标（避免每 token 重排版），结束后整体转 Markdown */
-function renderStreamingBody() {
-	const c = state.cur;
-	if (!c) return;
-	c.bodyEl.textContent = "";
-	c.bodyEl.appendChild(document.createTextNode(c.text));
-	if (c.thinkingEl) c.bodyEl.appendChild(c.thinkingEl);
-	c.bodyEl.appendChild(c.cursor);
-}
+	/** 流式期间: 交付段文本 + 光标（避免每 token 重排版），结束后整体转 Markdown。
+	    P75：bodyEl 只渲染「交付段」（最后一次工具调用之后的文本）；轮次条+过程区置顶，不被清空吞掉 */
+	function renderStreamingBody() {
+		const c = state.cur;
+		if (!c) return;
+		c.bodyEl.textContent = ""; // 清空重建（steps-group 引用保留在 c 上，随后挂回——顺带修掉文本 delta 吞工具卡的隐患）
+		if (c.stepsGroup) c.bodyEl.appendChild(c.stepsGroup); // P75：轮次条+过程区置于交付正文之上
+		c.bodyEl.appendChild(document.createTextNode((c.text ?? "").slice(c.segStart ?? 0)));
+		if (c.thinkingEl) c.bodyEl.appendChild(c.thinkingEl);
+		c.bodyEl.appendChild(c.cursor);
+	}
 
 function appendThinking(delta) {
 	if (!state.cur) newAssistantBubble();
@@ -381,7 +424,7 @@ function finalizeAssistant(msg) {
 	c.cursor?.remove();
 	if (c.thinkingEl) c.thinkingEl.open = false; // P66：结束收起思考条
 	collapseTools(c);
-	let text = c.text;
+	let text = (c.text ?? "").slice(c.segStart ?? 0); // P75：交付区只吃最终段（中间叙述已在过程区）
 	if (!text && msg) text = extractText(msg.content);
 	if (text) {
 		c.bodyEl.classList.add("md");
@@ -393,11 +436,12 @@ function finalizeAssistant(msg) {
 		// 工具轮无文本：隐藏空壳气泡（工具卡已折叠到 work 条）
 		c.bodyEl.classList.add("empty-hide");
 	}
-	const hasWork = !!c.root.querySelector(".work");
+	const hasWork = !!c.root.querySelector(".work") || !!c.stepsGroup; // P72：steps-group 聚合条也算工作痕迹
 	const hasThinking = !!c.thinkingEl && c.bodyEl.contains(c.thinkingEl);
 	if (!text && hasWork) c.root.classList.add("toolonly");
 	else if (!text && !hasThinking && !hasWork) c.root.remove(); // 完全空轮次直接移除
-	mountMsgActs(c, text); // P68：hover 复制/引用操作条
+	if (state.streaming) c.root.dataset.p75Done = "1"; // P75：实时轮次内完结的消息可被下一张工具卡收编为中间叙述（恢复的历史消息不标记）
+	mountMsgActs(c, c.text || text); // P68：hover 复制/引用操作条（P75：复制仍给全文，含中间叙述）
 	if (msg?.stopReason === "error") mountRetryChip(c); // P39：失败一轮给「重试」按钮
 	const u = msg?.usage;
 	if (u) {
@@ -418,6 +462,98 @@ function extractText(content) {
 	return content.filter((b) => b.type === "text").map((b) => b.text).join("");
 }
 
+/** P75：工具卡出现 → 此前的文本段定级为「中间叙述」，转为过程区段落（流式期间过程区实时可见）。
+    注：SDK 单条消息内 text→tool 交错时才走本函数；每消息独立气泡的场景由 demotePrevNarration 收编 */
+function flushNarration(c) {
+	const seg = (c.text ?? "").slice(c.segStart ?? 0);
+	c.segStart = (c.text ?? "").length; // 之后的文本 = 交付段
+	if (!seg.trim()) return;
+	ensureStepsGroup(c);
+	const el = document.createElement("div");
+	el.className = "proc-text";
+	el.textContent = seg;
+	c.stepsBody.appendChild(el); // 时序：紧随其后的工具卡排在本段之后
+}
+
+/** P75：SDK 每条 assistant 消息独立成气泡（message_end 先于 tool_execution_start）——
+    工具卡开新气泡时，把上一条已完结的纯文本消息（同轮中间叙述）收编进本气泡过程区并移除原气泡；
+    最后一消息的交付文本不会被走到（其后无工具卡），保持始终可见 */
+function demotePrevNarration(root, c) {
+	let prev = root.previousElementSibling;
+	while (prev && (prev.classList.contains("sysline") || prev.dataset?.worker)) prev = prev.previousElementSibling; // 跳过系统行/子代理协作卡
+	if (!prev || !prev.classList.contains("assistant") || prev.dataset.p75Done !== "1") return;
+	const body = prev.querySelector(".body");
+	if (!body || body.classList.contains("empty-hide") || body.querySelector(".steps-group, .work, .tool")) return;
+	const clone = body.cloneNode(true);
+	clone.querySelector(".thinking")?.remove(); // 思考条不进过程区（P66 行为不变）
+	clone.querySelector(".msg-acts, .retry-chip")?.remove();
+	const text = clone.textContent.trim();
+	if (!text) return;
+	const el = document.createElement("div");
+	el.className = "proc-text";
+	el.textContent = text;
+	c.stepsBody.appendChild(el); // 时序：本工具卡之前
+	prev.remove();
+}
+
+/** P75：工具卡标题带对象——edit/write 类「已编辑 <basename>」，bash/run 类「已运行命令」，其余保持工具名 */
+function toolTitle(name, args) {
+	const n = String(name ?? "");
+	const p = typeof args?.path === "string" ? args.path : typeof args?.file_path === "string" ? args.file_path : "";
+	if ((n === "write" || n === "apply_patch") && p) {
+		const base = p.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+		if (base) return `已创建 ${base}`; // 严格对标截图：新建文件「已创建 x.ts」
+	}
+	if (n === "edit" && p) {
+		const base = p.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+		if (base) return `已编辑 ${base}`;
+	}
+	if (n === "bash" || n === "powershell" || n === "run_cmd" || n === "run") return "已运行命令";
+	return n;
+}
+
+// P75 严格对标截图：连续的工具卡合并成一条组行（「编辑了文件运行了命令 ›」），点击展开逐条；
+// 合并类别：edit/write/apply_patch=「编辑了文件」，bash/powershell/run_cmd/run=「运行了命令」；其余工具不合并
+function toolMergeCat(name) {
+	const n = String(name ?? "");
+	if (n === "edit" || n === "write" || n === "apply_patch") return "edit";
+	if (n === "bash" || n === "powershell" || n === "run_cmd" || n === "run") return "run";
+	return "";
+}
+function mergeGroupLabel(cats) {
+	return [...cats].map((c) => (c === "edit" ? "编辑了文件" : "运行了命令")).join("");
+}
+function appendToolToSteps(c, card, name) {
+	const cat = toolMergeCat(name);
+	const body = c.stepsBody;
+	if (!cat) { body.appendChild(card); return; }
+	const last = body.lastElementChild;
+	if (last && last.classList?.contains("tool-merge")) {
+		// 连续同类段：并入现有组（跨 edit/run 混合也可，如截图「编辑了文件运行了命令」）
+		last.querySelector(".tm-body").appendChild(card);
+		if (!last.dataset.cats.includes(cat)) last.dataset.cats += `,${cat}`;
+		last.querySelector(".tm-tx").textContent = mergeGroupLabel(new Set(last.dataset.cats.split(",")));
+		return;
+	}
+	const wrap = document.createElement("div");
+	wrap.className = "tool-merge";
+	wrap.dataset.cats = cat;
+	const head = document.createElement("button");
+	head.type = "button";
+	head.className = "tm-head";
+	head.innerHTML = `<span class="tm-ic"><i data-lucide="${cat === "edit" ? "file-pen" : "terminal"}"></i></span><span class="tm-tx">${mergeGroupLabel(new Set([cat]))}</span><span class="chev">›</span>`;
+	head.addEventListener("click", () => {
+		const open = wrap.classList.toggle("open");
+		head.querySelector(".chev").textContent = open ? "⌄" : "›";
+	});
+	const tmBody = document.createElement("div");
+	tmBody.className = "tm-body";
+	tmBody.appendChild(card);
+	wrap.append(head, tmBody);
+	body.appendChild(wrap);
+	refreshIcons();
+}
+
 /* ================= 工具卡 ================= */
 function ensureBubble() {
 	if (!state.cur) newAssistantBubble();
@@ -430,7 +566,8 @@ function toolCard(id, name, args) {
 	const argStr = typeof args === "string" ? args : JSON.stringify(args, null, 1) ?? "";
 	const head = document.createElement("div");
 	head.className = "head";
-	head.innerHTML = `<span class="name"><i data-lucide="wrench"></i> ${escapeHtml(name)}</span>
+	// P75：标题带对象（edit/write 带 basename，bash/run「已运行命令」）
+	head.innerHTML = `<span class="name"><i data-lucide="wrench"></i> ${escapeHtml(toolTitle(name, args))}</span>
 		<span class="arg-preview">${escapeHtml(String(args?.path ?? args?.command ?? argStr).replace(/\s+/g, " ").slice(0, 80))}</span>
 		<span class="st run">运行中…</span>`;
 	const argsEl = document.createElement("div");
@@ -439,7 +576,17 @@ function toolCard(id, name, args) {
 	const outEl = document.createElement("div");
 	outEl.className = "out";
 	card.append(head, argsEl, outEl);
-	ensureBubble().bodyEl.appendChild(card);
+	const c = ensureBubble();
+	flushNarration(c); // P75：先落中间叙述段再挂工具卡（保持时序；单消息内 text→tool 交错场景）
+	ensureStepsGroup(c); // P72 交付2：连续工具调用聚合进时间线容器
+	demotePrevNarration(c.root, c); // P75：上一条纯文本消息收编为中间叙述（SDK 每消息独立气泡）
+	appendToolToSteps(c, card, name); // P75 严格对标截图：连续工具卡并组（「编辑了文件运行了命令 ›」）
+	c.stepsCount = (c.stepsCount ?? 0) + 1;
+	// P75：流式期间轮次条强制展开（用户中途手折 → 新步骤到来重新展开）
+	c.stepsGroup.classList.remove("collapsed");
+	c.stepsGroup.querySelector(".chev").textContent = "⌄";
+	renderStreamingBody(); // P75：叙述段已入过程区 → 交付区立即重渲染避免重复
+	c.stepsTx.textContent = P72.turnBarLabel(c.stepsCount, 0, false);
 	pinLiveBar();
 	scrollBottom();
 	liveBarTool(name);
@@ -523,12 +670,111 @@ function escapeHtml(s) {
 	return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+/* ================= P72 交付1：Subagent 协作卡（聊天流内嵌） ================= */
+/* 数据源：主进程 worker_update 事件（agent-host.mjs 推送 worker 快照：id/role/task/status/steps/model/started/endedAt）。
+   卡片按事件到达时序插入聊天流（触发它的用户消息之后、worker 结论消息之前），状态变化原位更新。 */
+function clearSubagentCards() {
+	for (const rec of state.subagentCards.values()) if (rec.timer) clearInterval(rec.timer);
+	state.subagentCards.clear();
+}
+
+function renderSubagentCard(w) {
+	if (!w?.id) return;
+	let rec = state.subagentCards.get(w.id);
+	if (!rec) {
+		removeWelcome();
+		rec = buildSubagentCard(w);
+		state.subagentCards.set(w.id, rec);
+		chat.appendChild(rec.root);
+		pinLiveBar(); // 卡片别盖住钉底的活性指示条
+		refreshIcons();
+		scrollBottom();
+	} else {
+		rec.worker = w;
+	}
+	updateSubagentCard(rec, w);
+}
+
+function buildSubagentCard(w) {
+	const root = document.createElement("div");
+	root.className = "subagent-card";
+	root.dataset.worker = w.id;
+	root.innerHTML = `
+		<button type="button" class="sa-head">
+			<span class="sa-ic"><i data-lucide="bot"></i></span>
+			<span class="sa-status"></span>
+			<span class="sa-stats"></span>
+			<span class="chev">⌄</span>
+		</button>
+		<div class="sa-body">
+			<div class="sa-node">
+				<div class="sa-avatar">✦</div>
+				<div class="sa-role">主 Agent</div>
+				<div class="sa-task">派发子任务</div>
+			</div>
+			<div class="sa-wire" aria-hidden="true"></div>
+			<div class="sa-node sa-child">
+				<div class="sa-avatar">◇</div>
+				<div class="sa-role"></div>
+				<div class="sa-task"></div>
+				<div class="sa-badges"><span class="sa-model hidden"></span><span class="sa-spin"></span></div>
+			</div>
+		</div>`;
+	const rec = {
+		root, worker: w,
+		status: root.querySelector(".sa-status"),
+		stats: root.querySelector(".sa-stats"),
+		chev: root.querySelector(".sa-head .chev"),
+		role: root.querySelector(".sa-child .sa-role"),
+		task: root.querySelector(".sa-child .sa-task"),
+		model: root.querySelector(".sa-model"),
+		spin: root.querySelector(".sa-spin"),
+		timer: setInterval(() => { if (rec.worker) rec.stats.textContent = P72.subagentStats(rec.worker); }, 1000), // 耗时跳动，完成后定格
+		manual: false, // 用户手动展开过 → 不再自动折叠
+	};
+	rec.role.textContent = w.role ?? "worker";
+	rec.task.textContent = w.task ?? "";
+	rec.task.classList.toggle("hidden", !w.task);
+	root.querySelector(".sa-head").addEventListener("click", () => {
+		if (!root.classList.contains("finished")) return; // 运行中头部只读；完成后可点击折叠/展开回看
+		rec.manual = true;
+		root.classList.toggle("collapsed");
+		rec.chev.textContent = root.classList.contains("collapsed") ? "›" : "⌄";
+	});
+	return rec;
+}
+
+function updateSubagentCard(rec, w) {
+	const st = P72.subagentStatus(w.status);
+	rec.status.textContent = st.label;
+	rec.status.className = `sa-status ${st.cls}`;
+	rec.root.dataset.status = w.status ?? "";
+	rec.model.textContent = w.model ?? "";
+	rec.model.classList.toggle("hidden", !w.model); // 模型徽标：主进程拿得到才显示，拿不到不造假
+	rec.stats.textContent = P72.subagentStats(w);
+	rec.spin.classList.toggle("hidden", P72.subagentTerminal(w.status));
+	if (P72.subagentTerminal(w.status)) {
+		if (rec.timer) { clearInterval(rec.timer); rec.timer = null; } // 耗时定格
+		rec.root.classList.add("finished");
+		// P72 折叠策略：完成/取消默认折叠，失败保持展开（用户要看原因）；手动展开过的不动
+		if (!rec.manual && P72.subagentShouldAutoCollapse(w.status)) {
+			rec.root.classList.add("collapsed");
+			rec.chev.textContent = "›";
+		}
+		scrollBottom();
+	}
+}
 /* ================= 用量与状态 ================= */
 function renderUsage() {
 	const u = state.usageTotal;
 	usageEl.textContent = `in ${fmt(u.input)} (cache ${fmt(u.cacheRead)}) · out ${fmt(u.output)}` +
 		(u.cost > 0.0005 ? ` · $${u.cost.toFixed(u.cost < 1 ? 3 : 2)}` : ""); // P48：已知单价模型才有成本
 	usageEl.title = `本会话累计\n输入 ${u.input ?? 0} tok（cache 读 ${u.cacheRead ?? 0} / 写 ${u.cacheWrite ?? 0}）\n输出 ${u.output ?? 0} tok\n成本约 $${(u.cost ?? 0).toFixed(4)}（按模型单价估算）`;
+	// P72b：composer 状态条「⚡ 12.3k tok」会话累计指示（k 缩写；无数据隐藏，不显示百分比——context 上限另见 ctx 仪表）
+	const tokTotal = (u.input ?? 0) + (u.output ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
+	const tokEl = $("tok-indicator");
+	tokEl.hidden = !tokTotal;
+	tokEl.textContent = `⚡ ${P72.fmtTokCompact(tokTotal)} tok`;
 }
 function fmt(n) {
 	return n >= 10000 ? (n / 1000).toFixed(1) + "k" : String(n ?? 0);
@@ -703,6 +949,7 @@ function renderSessionList() {
 			for (const s of (pins.length ? pl.filter((s) => !state.meta?.[s.id]?.pinned) : pl).slice(0, 40)) sessionList.appendChild(mkItem(s, true));
 			if (!pl.length) sessionList.innerHTML = `<div class="side-empty">暂无普通聊天；点输入框左下角「文件夹」→「不在项目中工作」开始</div>`;
 		}
+	refreshIcons(); // 修复：项目头里的 folder 图标是动态插入的，重渲染后必须重扫才转成 SVG（否则永远不显示）
 }
 
 /* ---- M5：侧栏 tab（项目 / 分组） ---- */
@@ -850,6 +1097,7 @@ async function syncSessionIdentity() {
 async function resumeSession(file) {
 	if (state.streaming) await window.openpi.abort();
 	chat.innerHTML = "";
+	clearSubagentCards(); // P72：换会话时旧协作卡连同计时器一起清理
 	state.usageTotal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 	renderUsage();
 	state.ctx = null; // 恢复会话的上下文占用未知，等首条 usage 事件重算
@@ -858,7 +1106,7 @@ async function resumeSession(file) {
 		const info = await window.openpi.resume(file);
 		const isTask = !!state.meta?.[info.sessionId]?.task; // 任务会话：恢复时不绑定项目
 		state.session = { ...info, workspace: isTask ? null : info.workspace ?? null, task: isTask };
-		// P48：回填历史用量（含成本）
+		if (typeof onSessionSwitched === "function") onSessionSwitched(); // P72b：切会话刷新改动审阅面板（面板开着才拉）
 		try {
 			const u = await window.openpi.getUsage();
 			if (u) { state.usageTotal = u; renderUsage(); }
@@ -1092,6 +1340,10 @@ function handleEvent(e) {
 			}
 			break;
 
+		case "worker_update": // P72 交付1：worker 生命周期 → 聊天流内嵌协作卡（派发/运行/完成/失败/取消原位更新）
+			renderSubagentCard(e.worker);
+			break;
+
 		case "agent_settled":
 			setStreaming(false);
 			setStatus(`就绪 · ${state.session?.model?.id ?? ""}`);
@@ -1119,18 +1371,29 @@ function handleEvent(e) {
 		case "compaction_end":
 			if (e.result) addSysLine(`🗜 压缩完成: ${e.result.tokensBefore ?? "?"} tokens → 摘要+近期保留`);
 			else if (e.errorMessage) addSysLine(`🗜 压缩失败: ${e.errorMessage}`, true);
-			break;
-
 		case "auto_retry_start":
 			addSysLine(`⚠ 瞬时错误，${(e.delayMs / 1000).toFixed(0)}s 后自动重试 (${e.attempt}/${e.maxAttempts})`, true);
+			discardFailedAttempt(); // P75 修复：移除本轮已渲染的失败尝试气泡——一次问答只留一个回答气泡（对标 ChatGPT）
 			break;
 		case "auto_retry_end":
+			addSysLine(e.success ? "✓ 重试成功" : `✗ 重试失败: ${e.finalError ?? ""}`, !e.success);
+			break;
 			addSysLine(e.success ? "✓ 重试成功" : `✗ 重试失败: ${e.finalError ?? ""}`, !e.success);
 			break;
 
 		case "thinking_level_changed":
 			thinkingSelect.value = e.level;
 			break;
+	}
+}
+
+// P75 修复：瞬时错误自动重试时，移除本轮已渲染的失败尝试气泡（一次问答只留一个回答气泡，对标 ChatGPT）。
+// 失败尝试的内容不保留——「⚠ 瞬时错误 / ✓ 重试成功」系统行已足够解释发生了什么。
+function discardFailedAttempt() {
+	const els = state.turnAssistantEls ?? [];
+	state.turnAssistantEls = [];
+	for (const el of els) {
+		try { el?.remove(); } catch { /* 已被移除 */ }
 	}
 }
 
@@ -1169,6 +1432,7 @@ async function sendText(text, images = [], display = null) {
 	addUserMsg(text || "（图片）", images, display);
 	state.lastPrompt = { text, images }; // P39 失败重试
 	state.turnFiles = new Set(); // P39 本轮改动卡归零
+	state.turnAssistantEls = []; // P75 修复：新一轮的 assistant 气泡追踪归零（自动重试时按本轮折叠移除）
 	state.turnCard = null;
 	setStreaming(true);
 	setStatus("发送中…");
@@ -1291,6 +1555,7 @@ function resetChat() {
 	state.usageTotal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 	renderUsage();
 	state.tools.clear();
+	clearSubagentCards(); // P72：协作卡计时器清干净，避免跨会话泄漏
 	state.ctx = null; // 新会话上下文从零开始
 	state.turnFiles = new Set();
 	state.turnCard = null;
@@ -1313,26 +1578,86 @@ chat?.addEventListener?.("click", (e) => {
 });
 
 /* ================= 启动流程 ================= */
+/* P76 交付3：会话模型下拉 —— localStorage op-model-pins 勾选的进「★ 常用」段，其余进「其他」；
+   一个都没勾 = 维持原行为（按供应商分组全量展示）。末尾追加「⚙ 管理展示列表…」入口
+   （放最后不占 selectedIndex=0，兼容 e2e-m3 等既有用法；change 监听里对 __manage__ 特判）。 */
+const MODEL_PINS_KEY = "op-model-pins";
+function opPinsGet() {
+	try { return JSON.parse(localStorage.getItem(MODEL_PINS_KEY) ?? "[]"); }
+	catch { return []; }
+}
+function opPinsSet(arr) {
+	try { localStorage.setItem(MODEL_PINS_KEY, JSON.stringify(arr)); } catch { /* 隐身模式等场景尽力而为 */ }
+}
+function mkModelOption(m, pinned) {
+	const o = document.createElement("option");
+	o.value = `${m.provider}/${m.id}`;
+	o.textContent = `${pinned ? "★ " : ""}${m.name} · ${m.contextWindow ? fmtWin(m.contextWindow) : "上下文未知"}`; // ★ 前缀保持「 · 窗口」结尾（e2e-p385 场景⑦ $ 锚点）
+	return o;
+}
+function appendManageOption() {
+	const o = document.createElement("option");
+	o.value = "__manage__";
+	o.textContent = "⚙ 管理展示列表…";
+	modelSelect.appendChild(o);
+}
 function populateModels(models) {
 	state.models = models;
 	modelSelect.innerHTML = "";
-	const groups = new Map();
-	for (const m of models) {
-		if (!groups.has(m.provider)) groups.set(m.provider, []);
-		groups.get(m.provider).push(m);
-	}
-	for (const [provider, list] of groups) {
-		const og = document.createElement("optgroup");
-		og.label = provider;
-		for (const m of list) {
-			const o = document.createElement("option");
-			o.value = `${m.provider}/${m.id}`;
-			o.textContent = `${m.name} · ${m.contextWindow ? fmtWin(m.contextWindow) : "上下文未知"}`;
-			og.appendChild(o);
+	const byValue = new Map(models.map((m) => [`${m.provider}/${m.id}`, m]));
+	const pins = opPinsGet().filter((v) => byValue.has(v)); // 过滤掉已失效的模型
+	if (!pins.length) {
+		const groups = new Map(); // 原行为：按供应商分组全量展示
+		for (const m of models) {
+			if (!groups.has(m.provider)) groups.set(m.provider, []);
+			groups.get(m.provider).push(m);
 		}
-		modelSelect.appendChild(og);
+		for (const [provider, list] of groups) {
+			const og = document.createElement("optgroup");
+			og.label = provider;
+			for (const m of list) og.appendChild(mkModelOption(m, false));
+			modelSelect.appendChild(og);
+		}
+	} else {
+		const ogP = document.createElement("optgroup");
+		ogP.label = "★ 常用";
+		for (const v of pins) ogP.appendChild(mkModelOption(byValue.get(v), true));
+		const ogO = document.createElement("optgroup");
+		ogO.label = "其他";
+		for (const m of models) {
+			if (pins.includes(`${m.provider}/${m.id}`)) continue;
+			ogO.appendChild(mkModelOption(m, false));
+		}
+		modelSelect.append(ogP, ogO);
 	}
+	appendManageOption();
 }
+
+/* P76 交付3：管理弹窗（轻量多选，勾选即存 localStorage 并刷新下拉） */
+function openModelPinsModal() {
+	const mask = $("model-pins-mask"), list = $("model-pins-list");
+	if (!mask || !list) return;
+	const pins = opPinsGet();
+	list.innerHTML = "";
+	for (const m of state.models) {
+		const v = `${m.provider}/${m.id}`;
+		const row = document.createElement("label");
+		row.className = "mp-row";
+		row.innerHTML = `<input type="checkbox" ${pins.includes(v) ? "checked" : ""} /><span class="mp-name"></span><span class="mp-provider"></span>`;
+		row.querySelector(".mp-name").textContent = m.name;
+		row.querySelector(".mp-provider").textContent = `${m.provider}/${m.id}`;
+		row.querySelector("input").addEventListener("change", (e) => {
+			const cur = opPinsGet();
+			const next = e.target.checked ? [...cur, v] : cur.filter((x) => x !== v);
+			opPinsSet(next);
+			populateModels(state.models); // 勾选即时生效
+		});
+		list.appendChild(row);
+	}
+	mask.classList.remove("hidden");
+}
+$("btn-model-pins-close")?.addEventListener("click", () => $("model-pins-mask").classList.add("hidden"));
+$("model-pins-mask")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); });
 
 function selectedModel() {
 	const [provider, ...rest] = modelSelect.value.split("/");
@@ -1347,6 +1672,7 @@ async function startSession(workspace) {
 		const info = await window.openpi.start({ workspace, provider, id, thinkingLevel: thinkingSelect.value });
 		state.session = { ...info, workspace: isTask ? null : (info.workspace ?? workspace), task: isTask }; // 主进程可能回退到默认工作区
 		workspaceLabel.textContent = state.session.workspace || "不在项目中工作";
+		if (typeof onSessionSwitched === "function") onSessionSwitched(); // P72b：切会话刷新改动审阅面板（面板开着才拉）
 		workspaceLabel.title = state.session.workspace || "普通聊天，不绑定项目目录";
 		setStatus(`就绪 · ${info.model?.id ?? "无模型"}`);
 		if (isTask && info.sessionId) {
@@ -1471,13 +1797,21 @@ document.addEventListener("click", (e) => {
 	wsPicker.hidden = true; wsPickOpen = false;
 }, true);
 
-/* ---- 主题切换（暗 ↔ 亮，记忆在 localStorage） ---- */
+/* ---- 主题切换（暗 ↔ 亮，记忆在 localStorage；P74 扩展三档：跟随系统/浅色/深色） ---- */
 const themeBtn = $("btn-theme");
+const mqDark = matchMedia("(prefers-color-scheme: dark)"); // P74：跟随系统档监听系统深浅色变化
+function resolveTheme(t) { return t === "system" ? (mqDark.matches ? "dark" : "light") : t; }
 function applyTheme(t) {
-	document.documentElement.dataset.theme = t;
-	localStorage.setItem("op-theme", t); // 图标由 CSS 按 data-theme 切换（P46）
+	localStorage.setItem("op-theme", t); // 图标由 CSS 按 data-theme 切换（P46）；CSS 只认 light/dark，system 在此解析
+	document.documentElement.dataset.theme = resolveTheme(t);
 }
-themeBtn.addEventListener("click", () => applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light"));
+themeBtn.addEventListener("click", () => {
+	const cur = localStorage.getItem("op-theme") || "dark";
+	applyTheme(resolveTheme(cur) === "light" ? "dark" : "light"); // system 档下从生效色开始切换到手动档
+});
+mqDark.addEventListener?.("change", () => { // P74：system 档下系统切换深浅色时实时跟随
+	if ((localStorage.getItem("op-theme") || "dark") === "system") applyTheme("system");
+});
 applyTheme(localStorage.getItem("op-theme") || "dark");
 
 /* ---- 附件按钮（文件选择器 → 与粘贴同管道） ---- */
@@ -1703,7 +2037,13 @@ document.addEventListener("keydown", (e) => {
 	else if (k === "t") { e.preventDefault(); toggleDock("preview"); }
 });
 modelSelect.addEventListener("change", async () => {
-	if (!state.session) return;
+	if (modelSelect.value === "__manage__") { // P76：管理入口不触发切模型，恢复上次选择并弹管理窗
+		const cur = state.session?.model ? `${state.session.model.provider}/${state.session.model.id}` : null;
+		if (cur && [...modelSelect.options].some((o) => o.value === cur)) modelSelect.value = cur;
+		openModelPinsModal();
+		return;
+	}
+	if (!state.session) return; // P76 改写时保留原守卫
 	const { provider, id } = selectedModel();
 	try {
 		await window.openpi.setModel(provider, id);
@@ -1893,21 +2233,25 @@ const tip = (el, text, cls = "") => {
 	el.className = "msg-tip " + cls;
 	setTimeout(() => { if (el.textContent === text) { el.textContent = ""; el.className = "msg-tip"; } }, 6000);
 };
-
 function openSettings() {
 	settingsMask.classList.remove("hidden");
 	renderConfig();
 	renderSkillsPage(); // 技能与电脑控制（轻量 IPC，每次打开都刷新）
+	renderSubagentsPage(); // P73：子智能体 + 全局指令（轻量 IPC，每次打开都刷新）
+	renderP74Pages(); // P74：常规（外观回显）/信息（版本号）/扩展（内置能力 + MCP 动态行）
 }
 $("btn-settings").addEventListener("click", openSettings);
-$("btn-settings-close").addEventListener("click", () => settingsMask.classList.add("hidden"));
-settingsMask.addEventListener("click", (e) => { if (e.target === settingsMask) settingsMask.classList.add("hidden"); });
+/* P76：关设置弹窗时连带关掉模型展示管理弹窗（两处关闭路径共用） */
+function closeModelPinsModal() { $("model-pins-mask")?.classList.add("hidden"); }
+$("btn-settings-close").addEventListener("click", () => { settingsMask.classList.add("hidden"); closeModelPinsModal(); });
+settingsMask.addEventListener("click", (e) => { if (e.target === settingsMask) { settingsMask.classList.add("hidden"); closeModelPinsModal(); } });
 
 document.querySelectorAll(".tab").forEach((t) =>
 	t.addEventListener("click", () => {
 		document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
 		for (const p of document.querySelectorAll(".tab-pane")) p.classList.add("hidden");
 		$("tab-" + t.dataset.tab).classList.remove("hidden");
+		if (t.dataset.tab === "extensions") renderExtensionsPage(); // P74：扩展页切到该 tab 时按需刷新（MCP 状态实时）
 	}),
 );
 
@@ -1920,6 +2264,22 @@ async function renderConfig() {
 }
 
 /* ---- Tab1: API 密钥 ---- */
+/* P76 交付1：测试错误人话（HTTP 状态映射 + 原始错误前 80 字兜底） */
+function humanizeTestError(err) {
+	const raw = String(err ?? "").trim();
+	const map = [
+		[/HTTP 401/, "401 密钥无效"],
+		[/HTTP 403/, "403 无权限（检查密钥/白名单）"],
+		[/HTTP 404/, "404 端点路径不对（Base URL 少 /v1？）"],
+		[/HTTP 429/, "429 限流/欠费"],
+		[/HTTP 5\d\d/, "服务端错误，稍后再试"],
+		[/ECONNREFUSED|连接被拒/i, "连不上：服务未启动或地址不对"],
+		[/ENOTFOUND|EAI_AGAIN|getaddrinfo/i, "域名解析失败：检查网络/地址"],
+		[/ETIMEDOUT|TimeoutError|aborted/i, "超时：网络不通或服务无响应"],
+	];
+	for (const [re, msg] of map) if (re.test(raw)) return `${msg}（${raw.slice(0, 80)}）`;
+	return raw.slice(0, 80) || "未知错误";
+}
 function renderKeyList() {
 	const wrap = $("key-list");
 	wrap.innerHTML = "";
@@ -1933,14 +2293,43 @@ function renderKeyList() {
 		if (!rows.has(id)) rows.set(id, { name: id, has: !!a.keyMasked, keyTxt: a.keyMasked || "未配置", from: "内置" });
 		else rows.get(id).keyTxt += ` · auth: ${a.keyMasked}`;
 	}
+	if (!rows.size) { // P76 交付4：空态三步指引
+		const empty = document.createElement("div");
+		empty.className = "side-empty";
+		empty.innerHTML = `还没有任何密钥，三步完成：<br>① 下方输入 provider id（如 zhipu）→ ② 贴上 API Key 点「保存密钥」→ ③ 回到这行点「⚡ 测试」，绿灯即完成`;
+		wrap.appendChild(empty);
+		return;
+	}
 	for (const [id, r] of rows) {
 		const el = document.createElement("div");
 		el.className = "kv-item";
 		el.innerHTML = `<span class="dot ${r.has ? "" : "off"}"></span><span class="kv-name"></span>
-			<span class="kv-key"></span><span class="spacer"></span><span class="kv-meta">${r.from} · ${r.has ? "已配置" : "未配置"}</span>`;
+			<span class="kv-key"></span><span class="spacer"></span><span class="kv-meta">${r.from} · ${r.has ? "已配置" : "未配置"}</span>
+			${r.has ? `<span class="kv-test-tip"></span><button class="kv-test-btn" data-p76="key-test">⚡ 测试</button>` : ""}`; // P76 交付1：已配 key 的行加「⚡ 测试」
 		el.querySelector(".kv-name").textContent = `${r.name} (${id})`;
 		el.querySelector(".kv-key").textContent = r.keyTxt;
 		el.addEventListener("click", () => { $("key-provider").value = id; $("key-value").focus(); });
+		const testBtn = el.querySelector(".kv-test-btn");
+		if (testBtn) {
+			testBtn.addEventListener("click", async (e) => {
+				e.stopPropagation(); // 不触发行点击（行点击会聚焦 key 输入框）
+				const tipEl = el.querySelector(".kv-test-tip");
+				testBtn.disabled = true;
+				const old = testBtn.textContent;
+				testBtn.textContent = "测试中…";
+				tipEl.textContent = ""; tipEl.className = "kv-test-tip";
+				try {
+					const res = await window.openpi.configTest({ providerId: id }); // 主进程自动取真实密钥
+					if (res.ok) { tipEl.textContent = `✓ 连通 · ${res.ms}ms · ${res.count} 个模型`; tipEl.classList.add("ok"); }
+					else { tipEl.textContent = `✗ ${humanizeTestError(res.error)}`; tipEl.classList.add("err"); }
+				} catch (err) {
+					tipEl.textContent = `✗ ${humanizeTestError(err.message ?? err)}`; tipEl.classList.add("err");
+				} finally {
+					testBtn.disabled = false;
+					testBtn.textContent = old;
+				}
+			});
+		}
 		wrap.appendChild(el);
 	}
 }
@@ -2027,6 +2416,51 @@ $("btn-test-endpoint").addEventListener("click", async () => {
 	}
 });
 
+/* P76 交付2：一键拉取模型列表 —— models:probe 探测 → 回填表单 → saveProvider 持久化（保留已有显示名映射） */
+$("btn-fetch-models").addEventListener("click", async () => {
+	const el = $("fp-msg");
+	const btn = $("btn-fetch-models");
+	const api = $("fp-api").value;
+	// anthropic / google 端点无 OpenAI 兼容 /models：直接给人话，不打网络请求
+	if (api === "anthropic-messages" || api === "google-generative-ai") {
+		return tip(el, "该供应商不支持自动拉取，请手动填写模型 ID", "err");
+	}
+	const id = $("fp-id").value.trim();
+	const prevNames = new Map(parseModelsText($("fp-models").value).filter((m) => m.name).map((m) => [m.id, m.name])); // 先留档显示名映射
+	btn.disabled = true;
+	const old = btn.textContent;
+	btn.textContent = "拉取中…";
+	try {
+		const r = await window.openpi.modelsProbe({
+			providerId: id || undefined,
+			baseUrl: $("fp-baseurl").value.trim() || undefined,
+			apiKey: $("fp-key").value.trim() || undefined,
+		});
+		if (!r.ok) return tip(el, `✗ 拉取失败：${humanizeTestError(r.error)}`, "err");
+		if (!r.models.length) return tip(el, "✗ 端点通了但没返回模型，请手动填写模型 ID", "err");
+		$("fp-models").value = r.models.join("\n"); // 表单自动填充
+		if (id) { // 已有 ID 才落盘；否则提示先保存供应商
+			configCache = await window.openpi.configSaveProvider(id, {
+				name: $("fp-name").value.trim(),
+				baseUrl: $("fp-baseurl").value.trim(),
+				api,
+				apiKey: $("fp-key").value.trim() || undefined,
+				models: r.models.map((mid) => (prevNames.has(mid) ? { id: mid, name: prevNames.get(mid) } : { id: mid })),
+			});
+			renderProviderList(); renderKeyList();
+			tip(el, `✓ 拉到 ${r.models.length} 个模型，已填充并保存`, "ok");
+		} else {
+			tip(el, `✓ 拉到 ${r.models.length} 个模型，已填充 → 填供应商 ID 后点「保存供应商」`, "ok");
+		}
+	} catch (e) {
+		tip(el, `✗ 拉取失败：${e.message ?? e}`, "err");
+	} finally {
+		btn.disabled = false;
+		btn.textContent = old;
+	}
+});
+
+/* ---- Tab3: 本地模型预设 ---- */
 /* ---- Tab3: 本地模型预设 ---- */
 function renderPresetGrid() {
 	const grid = $("preset-grid");
@@ -2034,7 +2468,8 @@ function renderPresetGrid() {
 	for (const [key, p] of Object.entries(configCache.presets)) {
 		const b = document.createElement("button");
 		b.className = "preset-card";
-		b.innerHTML = `<b>${p.label}</b><span>${p.baseUrl}</span><div class="kv-meta" style="margin-top:4px">${p.hint}</div>`;
+		b.innerHTML = `<b>${p.label}</b><span>${p.baseUrl}</span><div class="kv-meta" style="margin-top:4px">${p.hint}</div>`
+			+ `<span class="preset-test" data-p76="preset-test" title="探测 ${p.baseUrl}（3 秒超时）">⚡ 测试</span><span class="preset-test-tip"></span>`; // P76 交付1：卡内「测试」（span 避免嵌套 button）
 		b.addEventListener("click", async () => {
 			$("fp-id").value = key;
 			$("fp-name").value = p.label;
@@ -2052,6 +2487,25 @@ function renderPresetGrid() {
 				tip($("preset-msg"), `✓ ${p.label} 在线 · 发现 ${r.count} 个模型，已填充 → 点「保存供应商」`, "ok");
 			} else if (!r.ok) {
 				tip($("preset-msg"), `${p.label} 未连通: ${r.error} —— 请确认服务已启动，然后手动「测连通」`, "err");
+			}
+		});
+		const testEl = b.querySelector(".preset-test");
+		testEl.addEventListener("click", async (e) => {
+			e.stopPropagation(); // 不触发载入预设
+			const tipEl = b.querySelector(".preset-test-tip");
+			testEl.style.pointerEvents = "none";
+			const old = testEl.textContent;
+			testEl.textContent = "测试中…";
+			tipEl.textContent = ""; tipEl.className = "preset-test-tip";
+			try {
+				const r = await window.openpi.modelsProbe({ baseUrl: p.baseUrl, apiKey: p.apiKey, local: true }); // 3 秒超时，先 /models 再 /api/tags
+				if (r.ok) { tipEl.textContent = `✓ 在线 · ${r.latencyMs}ms · ${r.models.length} 个模型`; tipEl.classList.add("ok"); }
+				else { tipEl.textContent = `✗ 连不上：检查是否启动（${String(r.error).slice(0, 60)}）`; tipEl.classList.add("err"); }
+			} catch (err) {
+				tipEl.textContent = `✗ 连不上：检查是否启动（${String(err.message ?? err).slice(0, 60)}）`; tipEl.classList.add("err");
+			} finally {
+				testEl.style.pointerEvents = "";
+				testEl.textContent = old;
 			}
 		});
 		grid.appendChild(b);
@@ -2131,6 +2585,7 @@ async function doHandoff(pct) {
 		const r = await window.openpi.handoff({ thinkingLevel: thinkingSelect.value });
 		if (!r.summary) throw new Error("无法生成交接摘要（会话内容太少或压缩失败），已保留原会话");
 		state.session = { ...r, workspace: r.workspace ?? state.session.workspace, task: state.session.task };
+		if (typeof onSessionSwitched === "function") onSessionSwitched(); // P72b：接力开新会话也视为切换
 		state.ctx = null; // 新会话从零开始，防接力链风暴
 		state.usageTotal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 		renderUsage();
@@ -2307,30 +2762,62 @@ $("btn-check-updates").addEventListener("click", async () => {
 /* ================= M3.5：审批三档 / Git 面板 / 图片输入 ================= */
 
 /* ---- 审批模式 ---- */
-$("approval-select").addEventListener("change", async (e) => {
+/** P71：真正执行切档（主进程纠偏回滚 + 系统行提示 + 计划模式记账），change 事件与全自动确认弹窗共用；返回是否切档成功 */
+async function switchApprovalMode(mode, sel) {
 	try {
-		if (e.target.value === "goal") {
-			// P63：目标模式先填目标+验收标准，确认后才真正切换
-			$("goal-bar").hidden = false;
-			$("goal-text").focus();
-			return; // 等 btn-goal-start 确认后再切
-		}
-		const real = await window.openpi.setApprovalMode(e.target.value);
-		if (typeof real === "string" && real !== e.target.value) e.target.value = real; // 主进程纠偏则回滚显示
-		const cur = e.target.value;
-		const names = { readonly: "只读", "auto-edit": "自动编辑", "full-auto": "全自动", plan: "计划模式（只读探索，批准后执行）" };
-		addSysLine(`🛡 审批模式：${names[cur]}`);
-		// P35：进入计划模式时记住来源档位，批准后切回
-		if (cur === "plan") {
-			state.planPrevMode = state.lastMode || "auto-edit";
-			state.planSpoke = false;
-		}
-		state.lastMode = cur;
-		renderPlanBar();
-	} catch (err) {
-		e.target.value = state.lastMode || "auto-edit"; // 失败回滚 select，保持与主进程一致
-		addSysLine(`切换失败: ${err.message ?? err}`, true);
+ 		const real = await window.openpi.setApprovalMode(mode);
+ 		if (typeof real === "string" && real !== mode) sel.value = real; // 主进程纠偏则回滚显示
+ 		const cur = typeof real === "string" ? real : mode;
+ 		const names = { readonly: "只读", "auto-edit": "自动编辑", "full-auto": "全自动", plan: "计划模式（只读探索，批准后执行）" };
+ 		addSysLine(`🛡 审批模式：${names[cur]}`);
+ 		// P35：进入计划模式时记住来源档位，批准后切回
+ 		if (cur === "plan") {
+ 			state.planPrevMode = state.lastMode || "auto-edit";
+ 			state.planSpoke = false;
+ 		}
+ 		state.lastMode = cur;
+ 		renderPlanBar();
+ 		return true;
+ 	} catch (err) {
+ 		sel.value = state.lastMode || "auto-edit"; // 失败回滚 select，保持与主进程一致
+ 		addSysLine(`切换失败: ${err.message ?? err}`, true);
+ 		return false;
+ 	}
+ }
+
+/* ---- P71：首次切「全自动」前弹自定义风险确认（Electron 里 window.confirm 体验差且可能被拦） ---- */
+let faConfirmCb = null;
+const faConfirmOpen = (cb) => { faConfirmCb = cb; $("fa-confirm-mask").classList.remove("hidden"); };
+const faConfirmClose = () => { faConfirmCb = null; $("fa-confirm-mask").classList.add("hidden"); };
+$("btn-fa-ok")?.addEventListener("click", async () => {
+	const cb = faConfirmCb;
+	faConfirmClose();
+	const ok = cb ? await cb() : true;
+	if (ok) localStorage.setItem("fullAutoConfirmed", "1"); // 切档成功才记免弹标记；失败下次仍弹确认（审查缺陷 #6）
+});
+$("btn-fa-cancel")?.addEventListener("click", faConfirmClose);
+window.addEventListener("keydown", (e) => {
+	// Esc = 取消（capture 阶段先于其他全局 Esc 处理，弹窗开着时优先关弹窗）
+	if (e.key === "Escape" && !$("fa-confirm-mask")?.classList.contains("hidden")) {
+		e.stopPropagation();
+		faConfirmClose();
 	}
+}, true);
+
+$("approval-select").addEventListener("change", async (e) => {
+	if (e.target.value === "goal") {
+		// P63：目标模式先填目标+验收标准，确认后才真正切换
+		$("goal-bar").hidden = false;
+		$("goal-text").focus();
+		return; // 等 btn-goal-start 确认后再切
+	}
+	// P71：首次切「全自动」先弹风险确认；确认前 select 回滚到原档位，点「仍要开启」才真正切
+	if (e.target.value === "full-auto" && !localStorage.getItem("fullAutoConfirmed")) {
+		e.target.value = state.lastMode || "auto-edit";
+		faConfirmOpen(() => switchApprovalMode("full-auto", e.target));
+		return;
+	}
+	await switchApprovalMode(e.target.value, e.target);
 });
 
 /* ---- P63：目标模式输入条 ---- */
@@ -2543,6 +3030,7 @@ function renderImageBar() {
 }
 async function ingestFiles(files) {
 	warnIfNoVision(); // P37 待办①：贴图到无视觉模型时提示
+	const beforeImgs = state.images.length; // P72b：入列前张数基线（失败的已走 addSysLine，不进 toast）
 	let savedTotal = 0;
 	for (const f of files) {
 		try {
@@ -2552,8 +3040,28 @@ async function ingestFiles(files) {
 		}
 		catch (e) { addSysLine(`图片添加失败: ${e.message ?? e}`, true); }
 	}
+	const addedImgs = state.images.length - beforeImgs;
+	if (addedImgs > 0) showToast(P72.pasteToastText(addedImgs)); // P72b：粘贴 toast（复用现有图片压缩提示之外的轻提醒）
 	if (savedTotal > 1024 * 512) addSysLine(`🖼 已自动压缩图片，节省 ${fmtMB(savedTotal)}（最长边 2048px，利于识别与速度）`);
 	renderImageBar();
+}
+
+/** P72b：粘贴 toast——顶部居中，4s 自动消失，后到顶掉前一条（复用同一元素重置计时） */
+let toastTimer = null;
+function showToast(text) {
+	if (!text) return;
+	let el = document.getElementById("toast");
+	if (!el) {
+		el = document.createElement("div");
+		el.id = "toast";
+		document.body.appendChild(el);
+	}
+	el.textContent = text;
+	el.classList.add("show");
+	clearTimeout(toastTimer);
+	toastTimer = setTimeout(() => {
+		el.classList.remove("show"); // CSS 过渡淡出；prefers-reduced-motion 下 media query 已去掉 transition = 直接显隐
+	}, 4000);
 }
 /** P37 待办①：当前会话模型的 input 标记不含 image → 贴图前提示，防静默丢弃 */
 function warnIfNoVision() {
@@ -3184,6 +3692,7 @@ async function renderSkillsPage() {
 	if (!skillsCache) return;
 	renderCuSection();
 	renderSkillList();
+	await loadProjectSkills(); // P73 第二批：项目级技能小节（无 workspace 时空态，不报错）
 	renderOfficeSection();
 	renderMcpSection();
 }
@@ -3371,6 +3880,26 @@ $("btn-update-check")?.addEventListener("click", async () => {
 $("btn-update-download")?.addEventListener("click", () => window.openpi.updateDownload().catch(() => {}));
 $("btn-update-install")?.addEventListener("click", () => window.openpi.updateInstall().catch(() => {}));
 $("btn-update-config")?.addEventListener("click", () => window.openpi.updateOpenConfig().catch(() => {}));
+
+/* ---- P71：安装指引（新用户引导）+ 导出日志包（报障自助） ---- */
+const INSTALL_GUIDE_URL = "https://github.com/liujinan153-cpu/openpi-desktop/blob/main/docs/INSTALL-GUIDE.md"; // org/repo 与 package.json repository 保持一致
+$("btn-install-guide")?.addEventListener("click", () =>
+	window.openpi.openExternal(INSTALL_GUIDE_URL).catch((err) => addSysLine(`打开安装指引失败: ${err.message ?? err}`, true)));
+$("btn-logs-export")?.addEventListener("click", async () => {
+	const btn = $("btn-logs-export"), msg = $("logs-msg");
+	if (!btn || btn.disabled) return;
+	btn.disabled = true;
+	tip(msg, "正在打包日志…");
+	try {
+		const r = await window.openpi.exportLogs();
+		if (r?.canceled) { tip(msg, ""); return; }
+		tip(msg, `✓ 已导出: ${r.path}`, "ok");
+	} catch (err) {
+		tip(msg, `导出失败: ${err.message ?? err}`, "err");
+	} finally {
+		btn.disabled = false;
+	}
+});
 // 设置页打开时刷新更新卡
 $("btn-settings")?.addEventListener("click", () => setTimeout(updateSnapshotRender, 50));
 
@@ -3386,6 +3915,19 @@ $("btn-mcp-reconnect")?.addEventListener("click", async () => {
 	renderMcpSection();
 });
 
+// P73：打开/创建 mcp.json（不存在先落最小模板）——主动添加 MCP 服务器的入口
+$("btn-mcp-open")?.addEventListener("click", async () => {
+	const msg = $("mcp-msg");
+	try {
+		const { path: p, created } = await window.openpi.mcpEnsureConfig();
+		const r = await window.openpi.openPath("~/.pi/agent/mcp.json");
+		if (r?.error) tip(msg, `打开失败：${r.error}`, "err");
+		else tip(msg, created ? "已创建示例配置并打开，编辑保存后点「重连全部」生效" : "已打开 mcp.json，编辑保存后点「重连全部」生效", "ok");
+	} catch (err) {
+		tip(msg, err?.message ?? err, "err");
+	}
+});
+
 $("cu-toggle")?.addEventListener("change", async (e) => {
 	try {
 		const r = await window.openpi.computerUseSet(e.target.checked);
@@ -3399,14 +3941,12 @@ $("cu-toggle")?.addEventListener("change", async (e) => {
 
 const SKILL_GROUP_LABEL = { managed: "已安装", disabled: "已停用", external: "外部来源" };
 function renderSkillList() {
-	const q = ($("skill-search").value || "").trim().toLowerCase();
+	const q = ($("skill-search").value || "").trim();
 	const wrap = $("skill-list");
 	wrap.innerHTML = "";
 	let total = 0;
 	for (const group of ["managed", "disabled", "external"]) {
-		const list = (skillsCache[group] ?? []).filter(
-			(s) => !q || s.name.toLowerCase().includes(q) || (s.descriptionZh || s.description).toLowerCase().includes(q),
-		);
+		const list = (skillsCache[group] ?? []).filter((s) => P73SKILLS.skillMatchQuery(s, q)); // P73：过滤逻辑抽到纯逻辑层
 		total += list.length;
 		if (!list.length) continue;
 		const h = document.createElement("div");
@@ -3417,6 +3957,48 @@ function renderSkillList() {
 	}
 	$("skill-count").textContent = total ? `共 ${total} 个` : "";
 	if (!total) wrap.innerHTML = `<div class="side-empty">${q ? "无匹配技能" : "还没有技能，点右上「＋ 新建」创建一个"}</div>`;
+	updateSkillSectionHeads();
+}
+
+/* ---- P73 第二批：小节头计数 badge + 项目级技能小节（workspace/.agents/skills，只读） ---- */
+function updateSkillSectionHeads() {
+	const gCount = ["managed", "disabled", "external"].reduce((n, k) => n + (skillsCache?.[k]?.length ?? 0), 0);
+	const pCount = projectSkillsCache?.length ?? 0;
+	const counts = P73SKILLS.skillChipCounts(gCount, pCount);
+	const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+	set("skill-global-count", String(counts.global));
+	set("skill-project-count", String(counts.project));
+	set("skill-chip-all-n", String(counts.all));
+	set("skill-chip-global-n", String(counts.global));
+	set("skill-chip-project-n", String(counts.project));
+}
+
+let projectSkillsCache = null; // null = 无工作区/主进程旧版本；数组 = 项目级扫描结果
+let projectSkillsDir = "";
+async function loadProjectSkills() {
+	const r = await window.openpi.skillsProjectList?.().catch(() => null);
+	projectSkillsCache = r?.ok ? (r.skills ?? []) : null;
+	projectSkillsDir = r?.ok ? (r.dir ?? "") : "";
+	paintProjectSkills();
+}
+function paintProjectSkills() {
+	const list = $("skill-project-list");
+	if (!list) return;
+	const pathEl = $("skill-project-path");
+	if (!projectSkillsCache) { // 无工作区：小节整体保留，空态「当前不在项目中」（不报错）
+		if (pathEl) pathEl.textContent = "";
+		list.innerHTML = `<div class="side-empty">当前不在项目中</div>`;
+		updateSkillSectionHeads();
+		return;
+	}
+	if (pathEl) pathEl.textContent = projectSkillsDir;
+	const q = ($("skill-search").value || "").trim();
+	const shown = projectSkillsCache.filter((s) => P73SKILLS.skillMatchQuery(s, q));
+	list.innerHTML = "";
+	if (!projectSkillsCache.length) list.innerHTML = `<div class="side-empty">此目录中没有技能</div>`;
+	else if (!shown.length) list.innerHTML = `<div class="side-empty">无匹配技能</div>`;
+	else for (const s of shown) list.appendChild(skillRow(s, "project"));
+	updateSkillSectionHeads();
 }
 
 function skillRow(s, group) {
@@ -3428,6 +4010,12 @@ function skillRow(s, group) {
 	el.querySelector("p").textContent = desc.length > 110 ? desc.slice(0, 109) + "…" : desc;
 	if (s.descriptionZh) el.querySelector("b").title = s.description; // 悬停看英文原文
 	el.querySelector(".skill-txt").title = s.dir;
+	// P73 第二批：来源 badge（全局/外部/项目）；外部来源与项目级保持只读
+	const srcBadge = document.createElement("span");
+	srcBadge.className = "badge-dim small";
+	srcBadge.textContent = group === "external" ? "外部" : group === "project" ? "项目" : "全局";
+	el.appendChild(srcBadge);
+	if (group === "project") return el; // P73：启停/删除是全局目录（~/.pi/agent/skills）语义，项目级不适用
 	if (group !== "external") {
 		const sw = document.createElement("label");
 		sw.className = "switch";
@@ -3454,17 +4042,30 @@ function skillRow(s, group) {
 			renderSkillList();
 		});
 		el.appendChild(del);
-	} else {
-		const badge = document.createElement("span");
-		badge.className = "badge-dim small";
-		badge.textContent = "外部";
-		el.appendChild(badge);
 	}
 	return el;
 }
 
 $("btn-skill-refresh")?.addEventListener("click", renderSkillsPage);
-$("skill-search")?.addEventListener("input", renderSkillList);
+$("skill-search")?.addEventListener("input", () => { renderSkillList(); paintProjectSkills(); }); // P73 第二批：搜索跨全局/项目两组过滤
+
+/* ---- P73 第二批：工具行筛选 chips（全部/全局/项目，单选） ---- */
+let skillChipFilter = "all";
+function applySkillChipFilter() {
+	const vis = P73SKILLS.skillSectionVisibility(skillChipFilter);
+	const g = $("skills-global-card"), p = $("skills-project-card");
+	if (g) g.hidden = !vis.global;
+	if (p) p.hidden = !vis.project;
+	for (const b of document.querySelectorAll(".skill-chips .chip")) b.classList.toggle("chip-on", b.dataset.filter === skillChipFilter);
+}
+for (const b of document.querySelectorAll(".skill-chips .chip")) {
+	b.addEventListener("click", () => { skillChipFilter = b.dataset.filter || "all"; applySkillChipFilter(); });
+}
+$("btn-skill-import")?.addEventListener("click", () => {
+	// P73：工具行「导入」复用原安装按钮 handler（原按钮原 id 原位保留，e2e 依赖）；URL 为空时由原 handler 提示
+	$("skill-install-url")?.focus();
+	$("btn-skill-install")?.click();
+});
 $("btn-skill-new")?.addEventListener("click", () => {
 	$("skill-new-form").classList.toggle("hidden");
 	$("skill-new-name").focus();
@@ -3479,6 +4080,7 @@ $("btn-skill-create")?.addEventListener("click", async () => {
 		$("skill-new-desc").value = "";
 		skillsCache = await window.openpi.skillsList();
 		renderSkillList();
+		showToast(`已创建「${name}」`); // P73 第二批：创建成功 toast + 列表刷新
 	} catch (err) {
 		tip($("skill-new-msg"), err.message, "err");
 	}
@@ -3501,6 +4103,137 @@ $("btn-skill-install")?.addEventListener("click", async () => {
 	} finally {
 		btn.disabled = false;
 		btn.textContent = "⬇ 安装";
+	}
+});
+
+/* ================= P73：子智能体管理 tab（内置角色 + ~/.pi/agent/subagents 自定义角色） ================= */
+let subagentsCache = null;
+let subagentEditingId = ""; // 非空 = 编辑态（复用新建表单）
+
+async function renderSubagentsPage() {
+	subagentsCache = await window.openpi.subagentsList().catch(() => null);
+	if (!subagentsCache) return;
+	renderSubagentLists();
+	// P73 交付2：全局指令（~/.pi/agent/AGENTS.md）
+	const g = await window.openpi.agentsGlobalRead().catch(() => null);
+	if (g) {
+		$("commands-global-path").textContent = g.path;
+		if (document.activeElement !== $("commands-global-text")) $("commands-global-text").value = g.text; // 用户正在编辑时不回灌
+	}
+}
+
+function subagentRow(item, kind) {
+	const el = document.createElement("div");
+	el.className = "subagent-row" + (item.disabled ? " off" : "");
+	el.innerHTML = `<span class="subagent-ic"></span><div class="subagent-txt"><div class="subagent-line"><b></b><span class="badge-dim small"></span><code class="subagent-task dim small"></code></div><p class="dim small"></p><div class="subagent-chips"></div></div>`;
+	el.querySelector(".subagent-ic").textContent = kind === "builtin" ? "🤖" : "🧩";
+	el.querySelector("b").textContent = item.name;
+	el.querySelector(".badge-dim").textContent = kind === "builtin" ? "内置" : "自定义";
+	el.querySelector(".subagent-task").textContent = `Task("${item.id}")`; // 派发用法提示（等宽小字）
+	el.querySelector("p").textContent = item.desc || (kind === "builtin" ? "" : "（无描述）");
+	const chips = el.querySelector(".subagent-chips");
+	const tools = item.tools ?? [];
+	if (tools.length) for (const t of tools) { const c = document.createElement("span"); c.className = "tool-chip"; c.textContent = t; chips.appendChild(c); }
+	else chips.innerHTML = `<span class="tool-chip dim">只读基座</span>`;
+	if (kind === "custom") {
+		const edit = document.createElement("button");
+		edit.className = "icon-btn"; edit.title = "编辑"; edit.textContent = "✎";
+		edit.addEventListener("click", () => openSubagentForm(item));
+		const del = document.createElement("button");
+		del.className = "icon-btn skill-del"; del.title = "删除"; del.textContent = "🗑";
+		del.addEventListener("click", async () => {
+			if (!confirm(`删除自定义子智能体「${item.name}」？JSON 文件将被删除。`)) return;
+			try {
+				await window.openpi.subagentsDelete(item.id);
+				showToast(`已删除「${item.name}」`);
+				subagentsCache = await window.openpi.subagentsList().catch(() => null); // 审查修复：IPC 失败不让 unhandled rejection 吞掉刷新
+				renderSubagentLists();
+			} catch (err) {
+				showToast(`删除失败: ${err?.message ?? err}`);
+			}
+		});
+		el.appendChild(edit); el.appendChild(del);
+	}
+	// 开关（内置/自定义通用）：禁用写入 settings 持久化，派发时回退 explore
+	const sw = document.createElement("label");
+	sw.className = "switch";
+	sw.title = item.disabled ? "已禁用（派发回退 explore）" : "已启用";
+	sw.innerHTML = `<input type="checkbox" ${item.disabled ? "" : "checked"}/><span class="slider"></span>`;
+	sw.querySelector("input").addEventListener("change", async (e) => {
+		const input = e.target;
+		if (input.disabled) { input.checked = !input.checked; return; } // 审查修复：in-flight 防连点，写回视觉状态
+		input.disabled = true;
+		try {
+			await window.openpi.subagentsToggle(item.id, !input.checked);
+			item.disabled = !input.checked;
+			el.classList.toggle("off", item.disabled);
+			tip($("subagent-msg"), `✓ 「${item.name}」已${input.checked ? "启用" : "禁用"}（禁用后派发该角色将回退 explore），新派发生效`, "ok");
+		} catch (err) {
+			input.checked = !input.checked; // 回滚 UI
+			tip($("subagent-msg"), err.message ?? err, "err");
+		} finally {
+			input.disabled = false;
+		}
+	});
+	el.appendChild(sw);
+	return el;
+}
+
+function renderSubagentLists() {
+	const q = ($("subagent-search").value || "").trim().toLowerCase();
+	const hit = (it) => !q || it.name.toLowerCase().includes(q) || (it.id || "").toLowerCase().includes(q) || (it.desc || "").toLowerCase().includes(q);
+	const wrapB = $("subagent-builtin-list"), wrapC = $("subagent-custom-list");
+	wrapB.innerHTML = ""; wrapC.innerHTML = "";
+	let n = 0;
+	const bl = (subagentsCache.builtin ?? []).filter(hit);
+	for (const it of bl) { wrapB.appendChild(subagentRow(it, "builtin")); n++; }
+	const cl = (subagentsCache.customs ?? []).filter(hit);
+	for (const it of cl) { wrapC.appendChild(subagentRow(it, "custom")); n++; }
+	$("subagent-count").textContent = n ? `共 ${n} 个` : "";
+	$("subagent-custom-empty").classList.toggle("hidden", cl.length > 0);
+	$("subagent-custom-dir").textContent = subagentsCache.dir ? `目录：${subagentsCache.dir}` : "";
+}
+
+function openSubagentForm(item = null) {
+	subagentEditingId = item ? item.id : "";
+	$("subagent-edit-id").value = subagentEditingId;
+	$("subagent-new-name").value = item ? item.name : "";
+	$("subagent-new-desc").value = item ? (item.desc || "") : "";
+	$("subagent-new-tools").value = item ? (item.tools ?? []).join(", ") : "";
+	$("subagent-new-prefix").value = item ? (item.prefix || "") : "";
+	$("subagent-new-form").classList.remove("hidden");
+	$("subagent-new-name").focus();
+}
+function closeSubagentForm() { subagentEditingId = ""; $("subagent-new-form").classList.add("hidden"); }
+
+$("btn-subagent-new")?.addEventListener("click", () => openSubagentForm(null));
+$("btn-subagent-new-empty")?.addEventListener("click", () => openSubagentForm(null));
+$("btn-subagent-cancel")?.addEventListener("click", closeSubagentForm);
+$("subagent-search")?.addEventListener("input", renderSubagentLists);
+$("btn-subagent-save")?.addEventListener("click", async () => {
+	const name = $("subagent-new-name").value.trim();
+	if (!name) return tip($("subagent-new-msg"), "名称必填", "err");
+	const tools = $("subagent-new-tools").value.split(/[,，]/).map((t) => t.trim()).filter(Boolean);
+	const editing = !!subagentEditingId;
+	try {
+		await window.openpi.subagentsSave({ id: subagentEditingId || undefined, name, desc: $("subagent-new-desc").value.trim(), tools, prefix: $("subagent-new-prefix").value });
+		closeSubagentForm();
+		showToast(editing ? `子智能体「${name}」已更新` : `子智能体「${name}」已创建`);
+		subagentsCache = await window.openpi.subagentsList();
+		renderSubagentLists();
+	} catch (err) {
+		tip($("subagent-new-msg"), err.message, "err");
+	}
+});
+
+/* ---- P73 交付2：全局指令保存（~/.pi/agent/AGENTS.md，写前主进程自动备份 .bak）---- */
+$("btn-commands-save")?.addEventListener("click", async () => {
+	try {
+		await window.openpi.agentsGlobalWrite($("commands-global-text").value);
+		$("commands-saved-at").textContent = `上次保存：${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+		showToast("全局指令已保存（原文件已备份为 AGENTS.md.bak）");
+	} catch (err) {
+		tip($("commands-msg"), err.message, "err");
 	}
 });
 
@@ -3536,9 +4269,10 @@ function mmRebuild() {
 	const chatRect = chat.getBoundingClientRect();
 	const H = chat.scrollHeight;
 	for (const el of chat.children) {
+		// P75 用户定调：每个横杠=一条用户提问，回答内容不上轨
 		if (el.hidden || el.classList.contains("empty-hide")) continue;
+		if (!el.classList.contains("user")) continue;
 		const r = el.getBoundingClientRect();
-		if (r.height < 4) continue;
 		const top = ((r.top - chatRect.top + chat.scrollTop) / H) * 100;
 		const h = Math.max(0.6, (r.height / H) * 100);
 		if (top >= 100) continue;
@@ -3547,6 +4281,7 @@ function mmRebuild() {
 		seg.style.top = top + "%";
 		seg.style.height = h + "%";
 		seg.title = (el.querySelector(".who")?.textContent ?? el.textContent ?? "").trim().slice(0, 60);
+		seg._src = el; // P75：hover 预览弹层用（minimap 段 ↔ 消息元素映射）
 		mmSegs.appendChild(seg);
 	}
 	mmVpUpdate();
@@ -3571,6 +4306,36 @@ minimap.addEventListener("mousedown", (e) => { mmDragging = true; mmJump(e); e.p
 window.addEventListener("mousemove", (e) => { if (mmDragging) mmJump(e); });
 window.addEventListener("mouseup", () => { mmDragging = false; });
 
+/* P75：hover 预览弹层（对标 ChatGPT Desktop）——鼠标停在轨道上弹出该位置消息的预览卡，点击/拖动跳转行为不变 */
+const mmPop = document.createElement("div");
+mmPop.className = "mm-pop hidden";
+mmPop.innerHTML = `<div class="mm-pop-who"></div><div class="mm-pop-tx"></div>`;
+minimap.appendChild(mmPop);
+const mmPopHide = () => { mmPop.classList.add("hidden"); };
+minimap.addEventListener("mousemove", (e) => {
+	if (mmDragging) { mmPopHide(); return; }
+	const rect = minimap.getBoundingClientRect();
+	const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+	let src = null, who = "", tx = "";
+	for (const seg of mmSegs.children) {
+		const top = parseFloat(seg.style.top) || 0;
+		const h = parseFloat(seg.style.height) || 0;
+		if (ratio >= top / 100 && ratio <= (top + h) / 100) { src = seg._src; break; }
+	}
+	if (!src) { mmPopHide(); return; }
+	who = (src.querySelector(".who")?.textContent ?? (src.classList.contains("user") ? "你" : "")).trim();
+	tx = (src.querySelector(".body")?.textContent ?? src.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
+	if (!tx) { mmPopHide(); return; }
+	mmPop.querySelector(".mm-pop-who").textContent = who;
+	mmPop.querySelector(".mm-pop-tx").textContent = tx;
+	mmPop.classList.remove("hidden");
+	// 弹层贴轨道左侧，垂直跟随光标并钳制在轨道内
+	const popH = mmPop.offsetHeight || 80;
+	const y = Math.min(Math.max(e.clientY - rect.top, 8), Math.max(8, rect.height - popH - 8));
+	mmPop.style.top = y + "px";
+});
+minimap.addEventListener("mouseleave", mmPopHide);
+
 /* ================= P67-2：设置全局搜索 ================= */
 const ssInput = $("settings-search"), ssPop = $("settings-search-pop");
 let ssItems = [], ssIdx = 0;
@@ -3582,11 +4347,13 @@ function ssIndex() {
 		if (!pane) continue;
 		idx.push({ tab: tab.dataset.tab, tabLabel: tab.textContent.trim(), el: pane, title: tab.textContent.trim(), text: pane.textContent.replace(/\s+/g, " ") });
 	}
-	for (const card of document.querySelectorAll("#settings .tab-pane > div[id$='-card'], #settings .tab-pane > .cu-card, #settings .tab-pane > .kv-list, #settings .tab-pane > .form-grid, #settings .tab-pane > .preset-grid")) {
+	/* P71 引入 + P74 迁移：「关于与更新」卡（update-card）现居「信息」tab（#tab-about）内，由通用 tab-pane 选择器索引；
+	   .settings-nav 直属卡选择器保留兜底（现无匹配，nav 底部已留白），tab 记空串时 ssGo 里 ?.click() 不切 tab 只滚动+高亮 */
+	for (const card of document.querySelectorAll("#settings .tab-pane > div[id$='-card'], #settings .tab-pane > .cu-card, #settings .tab-pane > .kv-list, #settings .tab-pane > .form-grid, #settings .tab-pane > .preset-grid, #settings .settings-nav > div[id$='-card']")) {
 		const pane = card.closest(".tab-pane");
-		if (!pane) continue;
-		const tabBtn = ssTabs().find((t) => "tab-" + t.dataset.tab === pane.id);
-		idx.push({ tab: pane.id.replace("tab-", ""), tabLabel: tabBtn?.textContent.trim() ?? "", el: card, title: card.querySelector("b")?.textContent?.trim() ?? card.id, text: card.textContent.replace(/\s+/g, " ") });
+		if (!pane && !card.closest(".settings-nav")) continue;
+		const tabBtn = pane ? ssTabs().find((t) => "tab-" + t.dataset.tab === pane.id) : null;
+		idx.push({ tab: pane ? pane.id.replace("tab-", "") : "", tabLabel: tabBtn?.textContent.trim() ?? "关于与更新", el: card, title: card.querySelector("b")?.textContent?.trim() ?? card.id, text: card.textContent.replace(/\s+/g, " ") });
 	}
 	return idx;
 }
@@ -3692,4 +4459,314 @@ function mountMsgActs(c, text) {
 	});
 	acts.append(bCopy, bQuote);
 	main.appendChild(acts);
+}
+
+/* ================= P72b：会话改动审阅面板（顶栏 git-compare 按钮 + 右栏 280px + 30s 轮询 + 单文件 diff 弹窗） ================= */
+const reviewPanelEl = $("review-panel");
+const reviewPanelList = $("review-panel-list");
+const reviewPanelEmpty = $("review-panel-empty");
+const reviewPanelBase = $("review-panel-base");
+const btnReviewPanel = $("btn-review-panel");
+let reviewPanelOpen = false;
+let reviewPanelTimer = null;
+
+/** 面板开关：打开拉一次 + 启动 30s 轮询；收起即停（不烧无谓 IPC） */
+function setReviewPanel(open) {
+	reviewPanelOpen = open;
+	reviewPanelEl.hidden = !open;
+	btnReviewPanel.classList.toggle("on", open);
+	if (open) {
+		refreshReviewPanel();
+		clearInterval(reviewPanelTimer);
+		reviewPanelTimer = setInterval(refreshReviewPanel, 30000);
+	} else {
+		clearInterval(reviewPanelTimer);
+		reviewPanelTimer = null;
+	}
+}
+
+/** 拉取会话改动（review:changes 失败/非 git 仓库 → 空态，不报错） */
+async function refreshReviewPanel() {
+	let r = null;
+	try { r = await window.openpi.reviewChanges(); } catch { r = null; }
+	// 拉取期间面板已收起 → 丢弃本次结果
+	if (!reviewPanelOpen) return;
+	const files = r?.ok ? (r.files ?? []) : [];
+	$("review-panel-title").textContent = files.length ? `记录了 ${files.length} 项改动` : "会话改动";
+	if (r?.ok) {
+		reviewPanelBase.hidden = false;
+		reviewPanelBase.textContent = r.base === "HEAD" ? "基线：HEAD（无会话快照）" : `基线：会话快照 ${String(r.base).slice(0, 7)}`;
+	} else {
+		reviewPanelBase.hidden = true;
+	}
+	reviewPanelEmpty.hidden = files.length > 0;
+	reviewPanelList.innerHTML = "";
+	for (const f of files) {
+		const row = document.createElement("div");
+		row.className = "rp-file";
+		row.title = f.file;
+		const st = String(f.status || "?").charAt(0).toUpperCase();
+		const badge = document.createElement("span");
+		// ?/R 等非常规状态统一落 u（未跟踪/其他）样式，MAD 各归本色
+		badge.className = `rp-badge rp-${"MAD".includes(st) ? st.toLowerCase() : "u"}`;
+		badge.textContent = st;
+		const name = document.createElement("span");
+		name.className = "rp-name mono";
+		name.textContent = f.file;
+		const stat = document.createElement("span");
+		stat.className = "rp-stat";
+		const parts = P72.diffStatParts(f.added, f.deleted, f.binary);
+		if (parts.text) {
+			stat.textContent = parts.text;
+			stat.classList.add("dim", "small");
+		} else {
+			for (const [cls, txt] of [["rp-add", parts.plus], ["rp-del", parts.minus]]) {
+				if (!txt) continue;
+				const s = document.createElement("span");
+				s.className = cls;
+				s.textContent = txt;
+				stat.appendChild(s);
+			}
+		}
+		row.append(badge, name, stat);
+		row.addEventListener("click", () => openReviewDiff(f.file));
+		reviewPanelList.appendChild(row);
+	}
+}
+
+/** 单文件 diff 弹窗（复用 memory-mask 同款遮罩结构；等宽滚动区按行打红绿 class） */
+async function openReviewDiff(file) {
+	const mask = $("review-diff-mask");
+	$("review-diff-title").textContent = file;
+	const body = $("review-diff-body");
+	body.textContent = "加载中…";
+	mask.hidden = false;
+	try {
+		const r = await window.openpi.reviewDiff(file);
+		if (!r?.ok) {
+			body.textContent = `无法获取 diff：${r?.reason ?? "未知错误"}`;
+			return;
+		}
+		body.innerHTML = "";
+		for (const line of String(r.diff ?? "").split("\n")) {
+			const div = document.createElement("div");
+			if (line.startsWith("+") && !line.startsWith("+++")) div.className = "diff-add";
+			else if (line.startsWith("-") && !line.startsWith("---")) div.className = "diff-del";
+			else if (line.startsWith("@@")) div.className = "diff-hunk";
+			div.textContent = line || " "; // 空行占位保行高
+			body.appendChild(div);
+		}
+		if (r.truncated) {
+			const note = document.createElement("div");
+			note.className = "dim";
+			note.textContent = "…（diff 过大，仅显示前 500 行）";
+			body.appendChild(note);
+		}
+	} catch (err) {
+		body.textContent = `无法获取 diff：${err?.message ?? err}`;
+	}
+}
+
+btnReviewPanel.addEventListener("click", () => setReviewPanel(!reviewPanelOpen));
+$("review-panel-close").addEventListener("click", () => setReviewPanel(false));
+$("review-panel-refresh").addEventListener("click", () => refreshReviewPanel());
+$("review-diff-close").addEventListener("click", () => { $("review-diff-mask").hidden = true; });
+$("review-diff-mask").addEventListener("click", (e) => {
+	if (e.target === $("review-diff-mask")) $("review-diff-mask").hidden = true; // 点遮罩关闭
+});
+window.addEventListener("keydown", (e) => {
+	if (e.key === "Escape" && !$("review-diff-mask").hidden) $("review-diff-mask").hidden = true;
+});
+
+/** P72b：切会话钩子（resumeSession/startSession/接力三处调用）——面板开着才刷新，收起时等下次打开再拉 */
+function onSessionSwitched() {
+	if (reviewPanelOpen) refreshReviewPanel();
+}
+
+/* ================= P74：常规 / 信息 / 扩展 三个设置 tab ================= */
+
+/* ---- P74① 常规页：主题三档（跟随系统/浅色/深色）——applyTheme/resolveTheme 在主题切换区（P74 扩展） ---- */
+$("sel-theme")?.addEventListener("change", (e) => applyTheme(e.target.value));
+
+/* ---- P74② 常规页：界面字体——canvas measure 探测过滤未安装候选；选择写 --sans 变量全局生效，「系统默认」恢复内置字体栈 ---- */
+const P74_FONT_CANDIDATES = [
+	{ name: "Microsoft YaHei", zh: "微软雅黑" },
+	{ name: "Noto Sans SC", zh: "思源黑体" },
+	{ name: "LXGW WenKai", zh: "霞鹜文楷" },
+	{ name: "MiSans", zh: "" },
+	{ name: "HarmonyOS Sans SC", zh: "" },
+	{ name: "OPPO Sans", zh: "" },
+];
+function detectInstalledFonts() {
+	try {
+		const ctx = document.createElement("canvas").getContext("2d");
+		if (!ctx) return [];
+		const probe = "测iW@1.国"; // 中英混测：候选字体被采用时宽度必偏离回退基线
+		ctx.font = "72px 'Courier New', monospace";
+		const baseline = ctx.measureText(probe).width;
+		const hits = [];
+		for (const f of P74_FONT_CANDIDATES) {
+			const hit = [f.name, f.zh].filter(Boolean).some((n) => {
+				ctx.font = `72px '${n}', 'Courier New', monospace`;
+				return Math.abs(ctx.measureText(probe).width - baseline) > 0.5;
+			});
+			if (hit) hits.push(f.name);
+		}
+		return hits;
+	} catch { return []; } // 探测失败宁可少列，不列出不存在的字体
+}
+function applyFont(name) {
+	if (name) document.documentElement.style.setProperty("--sans", `"${name}", "Microsoft YaHei", "Segoe UI", sans-serif`);
+	else document.documentElement.style.removeProperty("--sans"); // 系统默认 = 清空恢复 :root 内置字体栈
+	localStorage.setItem("op-font", name || "");
+}
+(() => {
+	const sel = $("sel-font");
+	if (!sel) return;
+	sel.innerHTML = `<option value="">系统默认</option>`;
+	for (const f of detectInstalledFonts()) {
+		const o = document.createElement("option");
+		o.value = f; o.textContent = f;
+		sel.appendChild(o);
+	}
+	applyFont(localStorage.getItem("op-font") || ""); // 启动恢复上次选择
+	sel.addEventListener("change", () => applyFont(sel.value));
+})();
+
+/* ---- P74③ 常规页：界面缩放 90–130%（钳制纯函数 clampZoom 在 p72-logic.js）；document.documentElement.style.zoom 在 Chromium 下全局生效 ---- */
+function applyZoom(pct) {
+	const r = globalThis.P72.clampZoom(pct);
+	document.documentElement.style.zoom = r === 100 ? "" : String(r / 100); // 100% 清空，避免叠加精度问题
+	const rng = $("rng-zoom"), val = $("zoom-val");
+	if (rng) rng.value = String(r);
+	if (val) val.textContent = `${r}%`;
+	localStorage.setItem("op-zoom", String(r));
+}
+$("rng-zoom")?.addEventListener("input", (e) => applyZoom(e.target.value));
+applyZoom(localStorage.getItem("op-zoom") || "100"); // 启动应用
+
+/* ---- P74④ 信息页：打开日志 / 问题反馈 / 开发者模式 ---- */
+$("btn-open-logs")?.addEventListener("click", async () => {
+	const log = "~/.pi/agent/logs/main.log", dir = "~/.pi/agent/logs";
+	try {
+		// 稳方案：fileStat 先探测文件（工作区外路径会被 path-policy 拒绝 → catch 视同不存在）；
+		// 存在则资源管理器定位（showItemInFolder 仅工作区内路径可达，失败静默回落 openPath 目录——openPath 允许 ~/.pi/agent 根内路径）
+		const st = await window.openpi.fileStat(log).catch(() => null);
+		if (st?.exists) {
+			const r = await window.openpi.showItemInFolder(log).catch(() => null);
+			if (r) return;
+		}
+		const r2 = await window.openpi.openPath(dir);
+		if (r2?.error) showToast(`打开日志失败：${r2.error}`);
+	} catch (err) {
+		showToast(`打开日志失败：${err?.message ?? err}`);
+	}
+});
+$("btn-feedback")?.addEventListener("click", async () => {
+	let ver = "";
+	try { ver = (await window.openpi.versions())?.app ?? ""; } catch { /* 旧主进程无此 IPC */ }
+	const body = encodeURIComponent(`\n\n---\n- 版本：OpenPi Desktop v${ver}\n- 环境：Windows`);
+	window.openpi.openExternal(`https://github.com/liujinan153-cpu/openpi-desktop/issues/new?body=${body}`)
+		.catch((err) => addSysLine(`打开问题反馈失败: ${err.message ?? err}`, true));
+});
+$("chk-devtools")?.addEventListener("change", async (e) => {
+	try {
+		await window.openpi.devtoolsToggle(e.target.checked); // 新 IPC devtools:toggle → 主进程 openDevTools({mode:"detach"}) / closeDevTools()
+		localStorage.setItem("op-devtools", e.target.checked ? "1" : ""); // localStorage 记忆（仅回显状态，不随启动自动开窗）
+	} catch (err) {
+		e.target.checked = !e.target.checked; // IPC 失败回滚视觉态
+		showToast(`切换开发者模式失败: ${err?.message ?? err}`);
+	}
+});
+
+/* ---- P74⑤ 扩展页：内置能力静态卡（诚实标注）+ MCP 动态行（数据源同 renderMcpSection）+ 市场占位入口 ---- */
+const P74_BUILTIN_EXTS = [
+	{ icon: "globe", name: "浏览器控制", caps: ["网页浏览", "内容抓取", "点击/表单操作"], perm: "驱动本机浏览器（CDP 调试协议），仅在你要求浏览网页时使用" },
+	{ icon: "monitor", name: "电脑控制", caps: ["截图", "鼠标点击/拖拽", "键盘输入"], perm: "纯本地执行、常驻进程驱动；非只读操作受审批档位管控" },
+	{ icon: "image", name: "生图", caps: ["文生图"], perm: "调用生图 API（默认智谱 CogView-4，可配第三方 OpenAI 兼容服务）" },
+	{ icon: "search", name: "联网检索", caps: ["webfetch 抓网页", "websearch 联网搜索"], perm: "只读工具；已拦截内网/环回地址" },
+	{ icon: "code", name: "代码智能", caps: ["代码理解/修改", "工作区检索", "终端命令"], perm: "工作区文件读写与命令执行均受审批档位管控" },
+	{ icon: "brain", name: "记忆", caps: ["跨会话记忆读写"], perm: "存储在本地 ~/.pi/agent，不上传" },
+];
+let extBuiltinRendered = false; // 内置卡静态不依赖 IPC，一次渲染即可
+async function renderExtensionsPage() {
+	const list = $("ext-builtin-list");
+	if (list && !extBuiltinRendered) {
+		extBuiltinRendered = true;
+		list.innerHTML = "";
+		for (const ext of P74_BUILTIN_EXTS) {
+			const el = document.createElement("details");
+			el.className = "ext-row";
+			el.innerHTML = `<summary><span class="ext-ic"><i data-lucide="${ext.icon}"></i></span><b></b><span class="badge-dim small">内置</span><span class="dim small">内置 · 当前版本</span></summary><div class="ext-body"><div class="subagent-chips"></div><p class="dim small"></p></div>`;
+			el.querySelector("summary b").textContent = ext.name;
+			const chips = el.querySelector(".subagent-chips");
+			for (const c of ext.caps) {
+				const s = document.createElement("span");
+				s.className = "tool-chip"; s.textContent = c;
+				chips.appendChild(s);
+			}
+			el.querySelector(".ext-body p").textContent = `权限：${ext.perm}`;
+			list.appendChild(el);
+		}
+		refreshIcons();
+	}
+	// MCP 动态行：服务器名 + 连接状态 + 工具数；无配置给空态
+	const wrap = $("ext-mcp-list");
+	let mcpOk = 0;
+	if (wrap) {
+		try {
+			const r = await window.openpi.mcpStatus();
+			if (!r.status.length) {
+				wrap.innerHTML = `<span class="dim small">未配置 MCP 服务器。在「工具与集成」→ MCP 服务器 中添加。</span>`;
+			} else {
+				wrap.innerHTML = "";
+				for (const s of r.status) {
+					const row = document.createElement("div");
+					row.innerHTML = s.ok
+						? `<b style="color:#3fb950">●</b> <b class="ext-mcp-name"></b> <span class="dim small"></span>`
+						: `<b style="color:#f85149">✖</b> <b class="ext-mcp-name"></b> <span class="err-text small"></span>`;
+					row.querySelector(".ext-mcp-name").textContent = `${s.name}（${s.mode}）`;
+					row.querySelector("span").textContent = s.ok ? `已连接 · ${s.toolCount} 个工具` : (s.error ?? "连接失败");
+					if (s.ok) mcpOk++;
+					wrap.appendChild(row);
+				}
+			}
+		} catch (err) {
+			wrap.innerHTML = `<span class="err-text small">状态获取失败：${err.message ?? err}</span>`;
+		}
+	}
+	const cnt = $("ext-enabled-count");
+	if (cnt) cnt.textContent = `已启用 ${P74_BUILTIN_EXTS.length + mcpOk}`;
+}
+// 市场入口：诚实占位——扩展市场尚未上线，先跳仓库主页
+$("btn-marketplace")?.addEventListener("click", () =>
+	window.openpi.openExternal("https://github.com/liujinan153-cpu/openpi-desktop")
+		.catch((err) => addSysLine(`打开市场失败: ${err.message ?? err}`, true)));
+
+/* ---- P74⑥ 三页统一挂载（openSettings 调用）：常规回显 / 信息版本号 / 扩展渲染 ---- */
+async function renderP74Pages() {
+	// 常规页三控件回显（应用逻辑在各自的 change 监听里）
+	const selTheme = $("sel-theme");
+	if (selTheme) selTheme.value = localStorage.getItem("op-theme") || "dark";
+	const selFont = $("sel-font");
+	if (selFont) selFont.value = localStorage.getItem("op-font") || "";
+	const z = globalThis.P72.clampZoom(localStorage.getItem("op-zoom") || "100");
+	const rng = $("rng-zoom"), zv = $("zoom-val");
+	if (rng) rng.value = String(z);
+	if (zv) zv.textContent = `${z}%`;
+	// 信息页：应用版本复用 update-line 同源数据（update:snapshot）；electron/chrome 小字走 app:versions
+	try {
+		const s = await window.openpi.updateSnapshot();
+		const av = $("about-version");
+		if (s?.current && av) av.textContent = `v${s.current}`;
+	} catch { /* 非主窗口等场景忽略 */ }
+	try {
+		const v = await window.openpi.versions();
+		const ae = $("about-electron");
+		if (v && ae) ae.textContent = `Electron ${v.electron} · Chrome ${v.chrome}`;
+	} catch { /* 旧主进程无此 IPC */ }
+	const chk = $("chk-devtools");
+	if (chk) chk.checked = localStorage.getItem("op-devtools") === "1";
+	// 扩展页（内置卡 + MCP 动态行）
+	renderExtensionsPage();
 }

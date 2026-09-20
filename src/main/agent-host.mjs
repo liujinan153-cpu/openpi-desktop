@@ -32,6 +32,7 @@ import { computerTools } from "./computer-tools.mjs"; // P56 OS 级 computer-use
 import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58 轻量代码诊断 + 验证门槛引导 + P62 ast_edit/run_tests
 import { imageTools } from "./image-tools.mjs"; // P61 CogView 生图
 import { repoMapSystemPrompt } from "./repo-map.mjs"; // P62 工作区地图注入
+import { parseSubagentJsonFile, resolveWorkerRole } from "./p73-logic.mjs"; // P73 子智能体：自定义角色合并 + 禁用清单回退（纯函数层）
 
 /** P64：worker 专用命令执行工具——不给内置 bash（#117：worker 会话激活内置 bash 会卡死主会话 agent loop，原因在 SDK 的 shell 初始化），自定义实现还能精确拦危险命令 */
 function buildRunCmdTool(host) {
@@ -45,6 +46,8 @@ function buildRunCmdTool(host) {
 			const ret = (text, ok = true) => ({ content: [{ type: "text", text }], details: { ok } });
 			const cmd = String(params.command ?? "").trim();
 			if (!cmd) return ret("缺少 command", false);
+			// 审查修复：readonly 档位下 worker 一律禁执行（此前仅靠剥 extraTools，run_cmd 恒在 customTools，任意非 RISKY 命令可穿透）
+			if (APPROVAL.mode === "readonly") return ret("主会话处于只读档位，子代理禁止执行命令", false);
 			if (RISKY.some((re) => re.test(cmd))) return ret(`危险命令被拒绝：${cmd.slice(0, 100)}`, false);
 			// P62 教训：execFileSync 拿不到 stderr 且异常对象经 SDK 序列化后会丢信息——用 spawnSync 同步拿全三个流
 			const r = spawnSync(cmd, { encoding: "utf8", timeout: 120000, maxBuffer: 8 * 1024 * 1024, windowsHide: true, shell: true, cwd: host?.workspace || process.cwd() });
@@ -75,6 +78,28 @@ const WORKER_ROLES = {
 		prefix: "你是 reviewer 子代理：对抗式审查，找 bug、边界情况、安全风险。输出问题清单：严重度+文件:行号+问题描述+修复建议。不改代码。",
 	},
 };
+
+/** P73：读取子智能体运行配置——禁用清单（openpi-settings.json 的 disabledSubagents）+ 自定义角色（~/.pi/agent/subagents/*.json，坏文件跳过）。
+ *  在派发点按需读取（同步 fs 量级极小）；WORKER_ROLES 模块常量不污染，自定义角色在使用点合并。 */
+function loadSubagentConf() {
+	const dir = path.join(getAgentDir(), "subagents");
+	const customs = [];
+	try {
+		for (const f of fs.readdirSync(dir)) {
+			if (!f.endsWith(".json")) continue;
+			try {
+				const def = parseSubagentJsonFile(f, fs.readFileSync(path.join(dir, f), "utf8"));
+				if (def) customs.push(def); // 坏文件（坏 JSON / 缺 name）直接跳过
+			} catch { /* 单文件读失败不影响其他角色 */ }
+		}
+	} catch { /* 目录不存在 = 无自定义角色 */ }
+	let disabled = [];
+	try {
+		const s = JSON.parse(fs.readFileSync(path.join(getAgentDir(), "openpi-settings.json"), "utf8"));
+		if (Array.isArray(s.disabledSubagents)) disabled = s.disabledSubagents.map(String);
+	} catch { /* 无设置文件 = 无禁用 */ }
+	return { customs, disabled };
+}
 
 /** P50/P64：子代理工具（agent-as-tool）——独立上下文子代理；P64 支持角色 + spawn/wait 并行 */
 function buildSubagentTool(host) {
@@ -780,16 +805,32 @@ export class AgentHost {
 		const running = [...this.#workers.values()].filter((w) => w.status === "running").length;
 		if (running + jobs.length > 4) return { content: [{ type: "text", text: `当前 ${running} 个 worker 在跑，本次要派 ${jobs.length} 个，超上限 4。` }], details: { ok: false } };
 		onUpdate?.({ type: "text", text: `派发 ${jobs.length} 个子任务…` });
+		const conf = loadSubagentConf(); // P73：禁用清单 + 自定义角色（每次派发读一次，同步 fs 量级极小）
+		const roleNotes = [];
 		const ids = [];
 		for (const j of jobs) {
-			const role = WORKER_ROLES[j.role] ? j.role : "explore";
+			// P73：角色校验（未知 → explore）+ 禁用清单回退 + 自定义角色合并（WORKER_ROLES 模块常量不污染，在使用点合成 roleDef）
+			const resolved = resolveWorkerRole(j.role, Object.keys(WORKER_ROLES), conf.customs, conf.disabled);
+			const role = resolved.role;
+			const resolvedNote = resolved.note || "";
+			// 审查修复：内置角色优先（自定义 JSON 不得遮蔽内置白名单语义）；自定义工具白名单过滤——
+			// 只放行 write/edit/run_cmd，带 bash 会触发 #117 卡死主会话，其余未审计工具一律剔除
+			const roleDef = WORKER_ROLES[role] ?? {
+				extraTools: (Array.isArray(resolved.custom?.tools) ? resolved.custom.tools : []).filter((t) => ["write", "edit", "run_cmd"].includes(t)),
+				prefix: resolved.custom?.prefix || `你是 ${resolved.custom?.name || role} 子代理：${resolved.custom?.desc || ""}`,
+			};
 			const id = `w${++this.#workerSeq}`;
 			const worker = { id, role, task: j.task ?? j.prompt.slice(0, 40), started: Date.now(), status: "running", result: null };
 			this.#workers.set(id, worker);
+			this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) }); // P72 交付1：派发即推渲染层画协作卡
+			if (resolvedNote) roleNotes.push(`${worker.task}${resolvedNote}`); // P73：禁用回退在派发文本里注明
 			// #117：tool execute 内不能阻塞等待子 LLM 流（Promise.all/await 均会触发 SDK 轮转竞态，主会话 tool result 后不再回喂）——
 			// 改为后台跑 + 完成后 followUp 把结论自动注入主会话（SDK 原生：agent 结束后也能唤醒处理）
-			const p = this.#runWorker(worker, j.prompt, WORKER_ROLES[role], signal);
+			const p = this.#runWorker(worker, j.prompt, roleDef, signal);
 			p.then((r) => {
+				// 审查修复：已取消的 worker 不回喂结论（否则「[子任务完成] …已被取消」会污染主会话）
+				const w = this.#workers.get(String(r.details?.workerId ?? ""));
+				if (w?.status === "cancelled") return;
 				// #117：结论回喂三态——loop 空闲直接 prompt 开新轮；loop 忙（重入保护拒）转 followUp 排队；
 				// 延迟 1.5s 等主会话 loop 完全收尾（followUp 入队晚于 drain 检查会挂队列无人消费）
 				setTimeout(() => {
@@ -802,14 +843,19 @@ export class AgentHost {
 			ids.push(`${id}(${role}:${worker.task})`);
 		}
 		return {
-			content: [{ type: "text", text: `已后台派发 ${jobs.length} 个子任务：${ids.join("、")}。各自完成后结论会自动推送进来，届时请汇总。` }],
+			content: [{ type: "text", text: `已后台派发 ${jobs.length} 个子任务：${ids.join("、")}。各自完成后结论会自动推送进来，届时请汇总。${roleNotes.length ? `\n⚠ ${[...new Set(roleNotes)].join("；")}` : ""}` }],
 			details: { ok: true, count: jobs.length, workerIds: ids },
 		};
 	}
 	/** P64：worker 实际执行体（完成/失败写回 worker 状态；不描主会话 onUpdate —— spawn 模式下工具卡已结束，只写注册表） */
+	/** P72：worker 状态快照（推给渲染层画协作卡；不含 session/result 等重对象） */
+	#workerSnapshot(w) {
+		return { id: w.id, role: w.role, task: w.task, status: w.status, steps: w.steps ?? 0, model: w.model ?? null, started: w.started, endedAt: w.endedAt ?? null };
+	}
 	async #runWorker(worker, prompt, roleDef, signal) {
 		const started = Date.now();
 		let sub = null;
+		let unsubSteps = null; // P72：worker 工具事件订阅句柄
 		const timer = setTimeout(() => sub?.abort?.(), 8 * 60 * 1000); // 硬超时 8 分钟
 		try {
 				this.#ensure();
@@ -832,6 +878,16 @@ export class AgentHost {
 				sub = session;
 				worker.session = session;
 				const onAbort = () => session.abort().catch(() => {});
+				// P72 交付1：模型徽标（SDK session.model 可解析才给，解析失败就不显示，不造假）+ 工具调用计数透传（只报数不转发内容，避免刷屏）
+				worker.model = session?.model?.id ?? null;
+				try {
+					unsubSteps = session.subscribe?.((e) => {
+						if (e?.type !== "tool_execution_start") return;
+						worker.steps = (worker.steps ?? 0) + 1;
+						this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) });
+					});
+				} catch { /* 订阅不可用 → 协作卡显示「后台执行中」 */ }
+				this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) }); // 会话就绪后的第二次推送（补模型徽标）
 				signal?.addEventListener?.("abort", onAbort);
 				const plist = [session.prompt(roleDef.prefix + "\n\n" + prompt)];
 				await Promise.all(plist);
@@ -848,16 +904,27 @@ export class AgentHost {
 				}
 			}
 			if (!result) result = "（子任务无文本结论，可能被中断或出错）";
-			worker.status = "done";
-			worker.result = `子任务「${worker.task}」完成（role=${worker.role}，${Math.round((Date.now() - started) / 1000)}s）：\n\n${result.slice(0, 20000)}`;
-			return { content: [{ type: "text", text: worker.result }], details: { ok: true, secs: Math.round((Date.now() - started) / 1000), workerId: worker.id } };
+			worker.endedAt = worker.endedAt ?? Date.now(); // P72：协作卡耗时定格（取消分支已定格则不覆盖）
+			// 审查修复：cancel 分支已置 cancelled（abort 后 prompt 是 resolve 不是 reject），此处不得覆盖回 done（镜像 P69 finish 的取消优先检查）
+			if (worker.status !== "cancelled") {
+				worker.status = "done";
+				worker.result = `子任务「${worker.task}」完成（role=${worker.role}，${Math.round((Date.now() - started) / 1000)}s）：\n\n${result.slice(0, 20000)}`;
+			}
+			this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) });
+			return { content: [{ type: "text", text: worker.result }], details: { ok: worker.status === "done", secs: Math.round((Date.now() - started) / 1000), workerId: worker.id } };
 		} catch (err) {
-			worker.status = "error";
-			worker.result = `子任务「${worker.task}」失败：${String(err?.message ?? err).slice(0, 300)}`;
+			worker.endedAt = worker.endedAt ?? Date.now();
+			// 审查修复：取消引发的异常不覆盖取消态
+			if (worker.status !== "cancelled") {
+				worker.status = "error";
+				worker.result = `子任务「${worker.task}」失败：${String(err?.message ?? err).slice(0, 300)}`;
+			}
+			this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) }); // P72
 			return { content: [{ type: "text", text: worker.result }], details: { ok: false } };
 		} finally {
 			clearTimeout(timer);
 			try { sub?.dispose?.(); } catch { /* 已释放 */ }
+			try { unsubSteps?.(); } catch { /* 已释放 */ } // P72
 			worker.session = null;
 		}
 	}
@@ -872,7 +939,7 @@ export class AgentHost {
 		const w = this.#workers.get(String(params.id ?? ""));
 		if (!w) return { content: [{ type: "text", text: `worker ${params.id} 不存在。可用：${[...this.#workers.keys()].join(", ") || "无"}` }], details: { ok: false } };
 		if (action === "cancel") {
-			if (w.status === "running") { try { w.session?.abort?.(); } catch { /* 忽略 */ } w.status = "cancelled"; w.result = `子任务「${w.task}」已被取消。`; }
+			if (w.status === "running") { try { w.session?.abort?.(); } catch { /* 忽略 */ } w.status = "cancelled"; w.endedAt = Date.now(); w.result = `子任务「${w.task}」已被取消。`; this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(w) }); } // P72：协作卡同步取消态
 			return { content: [{ type: "text", text: `已取消 ${w.id}。` }], details: { ok: true } };
 		}
 		if (w.status === "running") return { content: [{ type: "text", text: `${w.id} 还在跑（${Math.round((Date.now() - w.started) / 1000)}s），稍后再取。` }], details: { ok: false } };
@@ -1089,20 +1156,6 @@ const WRITE_TOOLS = new Set(["write", "edit"]);
 const EXEC_TOOLS = new Set(["bash", "powershell"]);
 // P52 浏览器写类工具：readonly/auto-edit 档位弹确认（动真实网页的副作用与执行同级）
 
-/** P64：worker 侧审批扩展——readonly 档写/执行全拒（权限继承父会话）；其余档位危险命令拒（worker 无 UI 无法确认），写文件与普通命令按角色白名单直通 */
-function workerApprovalExtension() {
-	return (pi) => {
-		pi.on("tool_call", async (event) => {
-			const tool = event.toolName;
-			if (READ_ONLY_TOOLS.has(tool)) return undefined;
-			const cmd = String(event.input?.command ?? "");
-			const risky = EXEC_TOOLS.has(tool) && RISKY.some((re) => re.test(cmd));
-			if (APPROVAL.mode === "readonly") return { block: true, reason: "主会话处于只读档位，子代理禁止写文件/执行命令。" };
-			if (risky) return { block: true, reason: `子代理无 UI 无法确认危险命令：${cmd.slice(0, 100)}。请在主会话中执行。` };
-			return undefined; // auto-edit/goal/full-auto：角色白名单内直通
-		});
-	};
-}
 
 function approvalExtension(hostRef) {
 	return (pi) => {

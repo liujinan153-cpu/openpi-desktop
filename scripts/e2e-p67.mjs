@@ -2,7 +2,7 @@
 //   ① 长回复使 chat 可滚动 → minimap 显示且 segments ≥ 3
 //   ② 视口指示器（minimap-vp）可见
 //   ③ 点击轨道下半部 → chat.scrollTop 跳转生效
-//   ④ 设置搜索 "mcp" → 结果弹层 → 点击跳 skills tab + mcp-card flash 高亮
+//   ④ 设置搜索 "mcp" → 结果弹层 → 点击跳 tools tab（P73 第三批迁出）+ mcp-card flash 高亮
 //   ⑤ 设置搜索 "密钥" + Enter → 跳 keys tab
 //   ⑥ 搜索无命中 → 空态提示
 import CDP from "chrome-remote-interface";
@@ -119,10 +119,12 @@ await sleep(1500); // 等 minimap 重建（250ms 节流）
 
 const mm = await ev(`(() => {
 	const m = document.getElementById("minimap");
-	return { hidden: m.hidden, segs: m.querySelectorAll(".mm-seg").length, vp: !document.getElementById("minimap-vp").hidden,
+	const segs = [...m.querySelectorAll(".mm-seg")];
+	return { hidden: m.hidden, segs: segs.length, userOnly: segs.every((s) => s.classList.contains("t-user")), vp: !document.getElementById("minimap-vp").hidden,
 		scrollable: document.getElementById("chat").scrollHeight > document.getElementById("chat").clientHeight + 60 };
 })()`);
-ok("① minimap 显示且 segments ≥ 3", !mm.hidden && mm.segs >= 3, `hidden=${mm.hidden} segs=${mm.segs} scrollable=${mm.scrollable}`);
+// P75 用户定调：每个横杠=一条用户提问（回答不上轨），① 断言同步改为「段存在且全部为用户段」
+ok("① minimap 显示且 segments 只含用户提问", !mm.hidden && mm.segs >= 1 && mm.userOnly, `hidden=${mm.hidden} segs=${mm.segs} userOnly=${mm.userOnly} scrollable=${mm.scrollable}`);
 ok("② 视口指示器可见", mm.vp);
 
 const before = await ev(`(() => { const c = document.getElementById("chat"); c.scrollTop = 0; return c.scrollTop; })()`);
@@ -146,10 +148,10 @@ await sleep(200);
 const s4 = await ev(`(() => {
 	const pop = document.getElementById("settings-search-pop");
 	const first = pop.querySelector(".ss-item");
-	const tabHit = [...pop.querySelectorAll(".ss-item .ss-tab")].some((x) => x.textContent.includes("技能"));
+	const tabHit = [...pop.querySelectorAll(".ss-item .ss-tab")].some((x) => x.textContent.includes("工具与集成"));
 	return { visible: !pop.hidden, n: pop.querySelectorAll(".ss-item").length, tabHit };
 })()`);
-ok("④a 搜索 mcp 弹结果（含技能 tab）", s4.visible && s4.n > 0 && s4.tabHit, JSON.stringify(s4));
+ok("④a 搜索 mcp 弹结果（含工具与集成 tab）", s4.visible && s4.n > 0 && s4.tabHit, JSON.stringify(s4));
 await ev(`(() => {
 	const items = [...document.querySelectorAll("#settings-search-pop .ss-item")];
 	const mcpItem = items.find((x) => x.querySelector(".ss-title")?.textContent.includes("MCP")) ?? items[0];
@@ -161,7 +163,7 @@ const s4b = await ev(`(() => ({
 	activeTab: document.querySelector("#settings .tab.active")?.dataset.tab,
 	flash: document.getElementById("mcp-card")?.classList.contains("flash-hl"),
 }))()`);
-ok("④b 点击结果跳 skills tab + mcp-card 高亮", s4b.activeTab === "skills" && s4b.flash === true, JSON.stringify(s4b));
+ok("④b 点击结果跳 tools tab + mcp-card 高亮", s4b.activeTab === "tools" && s4b.flash === true, JSON.stringify(s4b));
 
 await ev(`(() => {
 	const i = document.getElementById("settings-search");

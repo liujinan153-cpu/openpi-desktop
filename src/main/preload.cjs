@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld("openpi", {
 	agentsFiles: () => ipcRenderer.invoke("ctx:agentsFiles"),
 	openPath: (p) => ipcRenderer.invoke("app:openPath", p),
 	showItemInFolder: (p) => ipcRenderer.invoke("app:showItemInFolder", p),
+	mcpEnsureConfig: () => ipcRenderer.invoke("mcp:ensure-config"),
 	convertPreview: (p) => ipcRenderer.invoke("preview:convert", p), // P42：办公产物预览
 	fileStat: (p) => ipcRenderer.invoke("app:fileStat", p),
 	checkpointList: () => ipcRenderer.invoke("checkpoint:list"),
@@ -57,6 +58,8 @@ contextBridge.exposeInMainWorld("openpi", {
 	updateOpenConfig: () => ipcRenderer.invoke("update:open-config"),
 	gitRevertHunk: (file, hunkIndex) => ipcRenderer.invoke("git:revert-hunk", file, hunkIndex),
 	gitDiffStaged: (file) => ipcRenderer.invoke("git:diff-staged", file),
+	reviewChanges: () => ipcRenderer.invoke("review:changes"), // P72b：会话改动审阅（基线=会话最新快照/HEAD）
+	reviewDiff: (file) => ipcRenderer.invoke("review:diff", file), // P72b：单文件 diff 文本（>200KB 截断）
 	gitStageHunk: (file, hunkIndex) => ipcRenderer.invoke("git:stage-hunk", file, hunkIndex),
 	gitStagedInfo: () => ipcRenderer.invoke("git:staged-info"),
 	gitSetIdentity: (name, email) => ipcRenderer.invoke("git:set-identity", { name, email }),
@@ -66,6 +69,12 @@ contextBridge.exposeInMainWorld("openpi", {
 	deleteMemory: (text) => ipcRenderer.invoke("agents:delete-memory", text),
 	taskList: () => ipcRenderer.invoke("task:list"),
 	mcpReconnect: () => ipcRenderer.invoke("mcp:reconnect"),
+	subagentsList: () => ipcRenderer.invoke("subagents:list"), // P73 子智能体管理
+	subagentsSave: (payload) => ipcRenderer.invoke("subagents:save", payload ?? {}), // P73 新建/编辑自定义角色
+	subagentsDelete: (id) => ipcRenderer.invoke("subagents:delete", id), // P73 删除自定义角色
+	subagentsToggle: (id, disabled) => ipcRenderer.invoke("subagents:toggle", { id, disabled }), // P73 禁用开关（内置/自定义通用）
+	agentsGlobalRead: () => ipcRenderer.invoke("agents:global-read"), // P73 全局指令 ~/.pi/agent/AGENTS.md
+	agentsGlobalWrite: (text) => ipcRenderer.invoke("agents:global-write", text), // P73 保存全局指令（写前备份 .bak）
 
 	// 会话
 	listSessions: () => ipcRenderer.invoke("sessions:list"),
@@ -75,6 +84,8 @@ contextBridge.exposeInMainWorld("openpi", {
 	sessionsImportScan: () => ipcRenderer.invoke("sessions:import-scan"), // P64⑧
 	sessionsImportDo: (kind) => ipcRenderer.invoke("sessions:import-do", kind),
 	openExternal: (url) => ipcRenderer.invoke("shell:open-external", url),
+	devtoolsToggle: (on) => ipcRenderer.invoke("devtools:toggle", !!on), // P74 开发者模式开关
+	versions: () => ipcRenderer.invoke("app:versions"), // P74 信息页：electron/chrome 运行时版本
 	openWorkspaceFile: (file) => ipcRenderer.invoke("shell:open-workspace-file", file),
 	resume: (file) => ipcRenderer.invoke("agent:resume", file),
 	agentInfo: () => ipcRenderer.invoke("agent:info"),
@@ -83,8 +94,10 @@ contextBridge.exposeInMainWorld("openpi", {
 	skillsToggle: (name, enabled) => ipcRenderer.invoke("skills:toggle", name, enabled),
 	skillsDelete: (name) => ipcRenderer.invoke("skills:delete", name),
 	skillsCreate: (name, description) => ipcRenderer.invoke("skills:create", name, description),
+	skillsProjectList: () => ipcRenderer.invoke("skills:projectList"), // P73 第二批：项目级技能目录扫描
 	skillsInstall: (url) => ipcRenderer.invoke("skills:install", url),
 	skillsOfficeScan: () => ipcRenderer.invoke("skills:officeScan"),
+	exportLogs: () => ipcRenderer.invoke("logs:export"), // P71 一键导出日志包
 	skillsOfficeReinstall: (names) => ipcRenderer.invoke("skills:officeReinstall", names),
 	computerUseSet: (enabled) => ipcRenderer.invoke("computeruse:set", enabled),
 	getMessages: () => ipcRenderer.invoke("agent:get-messages"),
@@ -96,6 +109,7 @@ contextBridge.exposeInMainWorld("openpi", {
 	configSaveKey: (id, key) => ipcRenderer.invoke("config:save-key", id, key),
 	configTest: (opts) => ipcRenderer.invoke("config:test", opts),
 	configPreset: (key) => ipcRenderer.invoke("config:preset", key),
+	modelsProbe: (opts) => ipcRenderer.invoke("models:probe", opts ?? {}), // P76：模型列表探测（测试连接/拉取模型/本地预设共用）
 	refreshModels: () => ipcRenderer.invoke("agent:refresh-models"),
 
 	// M2：会话树 / 压缩 / 导出 / 改名 / 扩展UI 回复；P24：上下文接力

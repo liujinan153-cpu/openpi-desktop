@@ -30,6 +30,7 @@
 				<button id="btn-notif" class="icon-btn" title="通知中心（后台任务/子任务完成都会留痕）"><i data-lucide="bell"></i><span id="notif-badge" hidden></span></button>
 				<button id="btn-settings" class="icon-btn" title="模型与供应商设置"><i data-lucide="settings"></i></button>
 				<button id="btn-theme" class="icon-btn" title="切换亮/暗主题"><i data-lucide="moon" class="ic-dark"></i><i data-lucide="sun" class="ic-light"></i></button>
+				<button id="btn-review-panel" class="icon-btn" title="会话改动（自会话基线以来的文件变更）"><i data-lucide="git-compare"></i></button>
 				<button id="btn-dock" class="icon-btn" title="显示/隐藏侧边面板 (Ctrl+Alt+B)">▤</button>
 			</header>
 
@@ -137,6 +138,7 @@
 					<span id="status-left" class="dim">初始化中…</span>
 					<div class="spacer"></div>
 					<span id="usage" class="dim mono"></span>
+					<span id="tok-indicator" class="dim mono" hidden title="本会话累计 token"></span>
 				</div>
 			</footer>
 		</div>
@@ -247,6 +249,19 @@
 			</div>
 		</div>
 
+		<!-- P72b：会话改动审阅面板（右栏，与 dock 同级；顶栏 git-compare 按钮切换，280px 可收起） -->
+		<div id="review-panel" hidden>
+			<div id="review-panel-head">
+				<span id="review-panel-title">会话改动</span>
+				<div class="spacer"></div>
+				<button id="review-panel-refresh" class="icon-btn" title="刷新">↻</button>
+				<button id="review-panel-close" class="icon-btn" title="收起"><i data-lucide="x"></i></button>
+			</div>
+			<div id="review-panel-base" class="small dim" hidden></div>
+			<div id="review-panel-empty" class="small dim" hidden>本会话暂无改动（非 git 仓库不可用）</div>
+			<div id="review-panel-list"></div>
+		</div>
+
 	<!-- M5：右键菜单 / 迷你弹窗 -->
 	<div id="ctx-menu" hidden></div>
 	<!-- P35.1：记忆管理（发空 # 打开） -->
@@ -256,6 +271,13 @@
 			<div class="dim small" style="margin: 6px 0 10px;"># 开头的一句话会固化到这里，后续所有会话自动生效</div>
 			<div id="memory-list"></div>
 			<div class="dim small" id="memory-empty" hidden>暂无记忆，发送 “# 记住：xxx” 添加第一条</div>
+		</div>
+	</div>
+	<!-- P72b：单文件 diff 弹窗（复用 memory-mask 同款遮罩+卡片结构；等宽滚动区按行上色） -->
+	<div id="review-diff-mask" hidden>
+		<div id="review-diff-modal">
+			<div class="modal-head"><span id="review-diff-title" class="mono">diff</span><div class="spacer"></div><button id="review-diff-close" class="icon-btn" title="关闭"><i data-lucide="x"></i></button></div>
+			<pre id="review-diff-body"></pre>
 		</div>
 	</div>
 	<div id="allow-mask" hidden>
@@ -294,23 +316,47 @@
 				<div class="spacer"></div>
 				<button id="btn-settings-close" class="icon-btn"><i data-lucide="x"></i></button>
 			</div>
-			<!-- P67：设置全局搜索（跨 5 个 tab 索引卡片/表单，结果点击跳转+高亮） -->
-			<div id="settings-search-row">
-				<i data-lucide="search"></i>
-				<input id="settings-search" class="input" placeholder="搜索设置：密钥 / 供应商 / MCP / Hooks / 生图 / 更新…" autocomplete="off" />
-				<div id="settings-search-pop" hidden></div>
-			</div>
-			<div class="tabs">
-				<button class="tab active" data-tab="keys">API 密钥</button>
-				<button class="tab" data-tab="providers">自定义供应商</button>
-				<button class="tab" data-tab="local">本地模型</button>
-				<button class="tab" data-tab="skills">技能</button>
-				<button class="tab" data-tab="computer">电脑控制</button>
-			</div>
+						<!-- P71 设置重设计：左侧竖向导航（搜索 + 分类 + 底部「关于与更新」全局入口），右侧固定高度内容区，只允许内容区滚动 -->
+						<div class="settings-body">
+							<aside class="settings-nav">
+								<!-- P67：设置全局搜索（跨 5 个 tab 索引卡片/表单，结果点击跳转+高亮）；P71 融入左导航顶部 -->
+								<div id="settings-search-row">
+									<i data-lucide="search"></i>
+									<input id="settings-search" class="input" placeholder="搜索设置…" autocomplete="off" />
+									<div id="settings-search-pop" hidden></div>
+								</div>
+							<div class="tabs">
+							<!-- P74：组标签「偏好」+ 新「常规」tab（主题/字体/字号），置于左导航最顶 -->
+							<span class="nav-group-label">偏好</span>
+							<button class="tab" data-tab="general"><i data-lucide="settings-2"></i>常规</button>
+								<!-- P71 第三轮：组标签分节（e2e 核查：p20/p21/p22/p67 均用属性/后代选择器，不依赖 .tabs 直接子代，button 间插 span 安全） -->
+							<span class="nav-group-label">模型服务</span>
+								<button class="tab active" data-tab="keys"><i data-lucide="key"></i>API 密钥</button>
+								<button class="tab" data-tab="providers"><i data-lucide="boxes"></i>自定义供应商</button>
+								<button class="tab" data-tab="local"><i data-lucide="cpu"></i>本地模型</button>
+								<span class="nav-group-label">智能体</span>
+								<button class="tab" data-tab="subagents"><i data-lucide="bot"></i>子智能体</button>
+								<button class="tab" data-tab="commands"><i data-lucide="file-text"></i>指令</button>
+								<button class="tab" data-tab="skills"><i data-lucide="sparkles"></i>技能</button>
+								<button class="tab" data-tab="computer"><i data-lucide="monitor"></i>电脑控制</button>
+								<!-- P73 第三批：工具与集成 tab —— 技能页里的非技能卡（MCP/联网检索/生图/审计/上下文/Hooks）迁出到独立 tab，技能页只留技能相关 -->
+								<button class="tab" data-tab="tools"><i data-lucide="wrench"></i>工具与集成</button>
+								<!-- P74：nav 末尾新增组标签「系统」+ 新 tab：扩展（能力聚合）与信息（关于/更新/开发者模式）；#update-card 整体迁入 #tab-about（见下方 pane），nav 底部留白 -->
+								<button class="tab" data-tab="extensions"><i data-lucide="puzzle"></i>扩展</button>
+								<span class="nav-group-label">系统</span>
+								<button class="tab" data-tab="about"><i data-lucide="info"></i>信息</button>
+							</div>
+								<div class="spacer"></div>
+								<!-- P74：#update-card 已整体迁入「信息」tab（#tab-about，见 settings-content 内，p33 e2e 元素 id 不变）；nav 底部留白 -->
+							</aside>
+							<div class="settings-content">
 
 			<div id="tab-keys" class="tab-pane">
+				<p class="dim small" data-p76="guide">选供应商 → 贴 Key → 点测试，绿灯即完成。</p>
 				<p class="dim small">为内置/自定义供应商保存 API 密钥（写入 <code>~/.pi/agent/auth.json</code>，权限 0600）。支持 <code>$ENV</code> 引用环境变量。</p>
+				<p class="settings-sec">已保存密钥</p><!-- P71 第三轮 -->
 				<div id="key-list" class="kv-list"></div>
+				<p class="settings-sec">添加密钥</p><!-- P71 第三轮 -->
 				<div class="form-row">
 					<input id="key-provider" class="input" placeholder="provider id，如 openai / anthropic / zhipu" />
 					<input id="key-value" class="input" placeholder="API Key" type="password" />
@@ -320,8 +366,11 @@
 			</div>
 
 			<div id="tab-providers" class="tab-pane hidden">
+				<p class="dim small" data-p76="guide">填 Base URL 和 Key → 点「拉取模型」自动带出列表 → 保存，绿灯即完成。</p>
+				<p class="settings-sec">已接入供应商</p><!-- P71 第三轮 -->
 				<div class="kv-list" id="provider-list"></div>
 				<hr class="sep" />
+				<p class="settings-sec">新增供应商</p><!-- P71 第三轮 -->
 				<div class="form-grid">
 					<label>供应商 ID<input id="fp-id" class="input" placeholder="如 my-proxy" /></label>
 					<label>显示名<input id="fp-name" class="input" placeholder="可选" /></label>
@@ -345,6 +394,7 @@
 				</div>
 				<div class="form-row">
 					<button id="btn-test-endpoint" class="btn ghost">测连通</button>
+					<button id="btn-fetch-models" class="btn ghost" data-p76="fetch">⚡ 拉取模型</button><!-- P76：一键拉取远端模型列表并回填/持久化 -->
 					<button id="btn-save-provider" class="btn primary">保存供应商</button>
 					<button id="btn-del-provider" class="btn danger">删除</button>
 					<span id="fp-msg" class="msg-tip"></span>
@@ -352,18 +402,74 @@
 			</div>
 
 			<div id="tab-local" class="tab-pane hidden">
+				<p class="dim small" data-p76="guide">选预设 → 点「测试」确认在线 → 保存，绿灯即完成。</p><!-- P76 极简引导 -->
 				<p class="dim small">本地推理服务一键接入：选预设 → 自动填充表单 → 「测连通」拉取已装模型 → 保存。模型对所有新会话可用。</p>
 				<div id="preset-grid" class="preset-grid"></div>
 				<div id="preset-msg" class="msg-tip"></div>
 			</div>
 
+			<div id="tab-subagents" class="tab-pane hidden"><!-- P73：子智能体管理（内置角色 + ~/.pi/agent/subagents 自定义角色） -->
+				<div class="skill-head">
+					<b>子智能体</b>
+					<span id="subagent-count" class="dim small"></span>
+					<div class="spacer"></div>
+					<input id="subagent-search" class="input" placeholder="搜索子智能体…" />
+					<button id="btn-subagent-new" class="btn primary">＋ 新建子智能体</button>
+				</div>
+				<div id="subagent-new-form" class="form-grid hidden"><!-- 新建/编辑表单（编辑时复用，subagent-edit-id 非空即编辑态） -->
+					<input type="hidden" id="subagent-edit-id" value="" />
+					<label>名称<input id="subagent-new-name" class="input" placeholder="如 docs-writer（保存为 subagents 目录下的 JSON 文件名）" /></label>
+					<label class="span2">描述<input id="subagent-new-desc" class="input" placeholder="这个子智能体负责什么、何时该派给它" /></label>
+					<label class="span2">工具白名单（逗号分隔，留空 = 只读基座 read/grep/find/ls）<input id="subagent-new-tools" class="input" placeholder="write, edit, run_cmd" /></label>
+					<label class="span2">prefix 提示词（注入子代理系统提示词开头）<textarea id="subagent-new-prefix" class="input" rows="4" placeholder="你是 …… 子代理：……"></textarea></label>
+					<div class="form-row">
+						<button id="btn-subagent-cancel" class="btn ghost">取消</button>
+						<button id="btn-subagent-save" class="btn primary">保存</button>
+						<span id="subagent-new-msg" class="msg-tip"></span>
+					</div>
+				</div>
+				<div id="subagent-msg" class="msg-tip"></div>
+				<div id="subagents-builtin-card">
+					<p class="settings-sec">内置</p><!-- P71 第三轮 -->
+					<div id="subagent-builtin-list"></div>
+				</div>
+				<div id="subagents-custom-card">
+					<p class="settings-sec">全局级 <code>~/.pi/agent/subagents</code></p><!-- P71 第三轮 -->
+					<div id="subagent-custom-list"></div>
+					<div id="subagent-custom-empty" class="side-empty hidden">还没有自己的子智能体<div style="margin-top:10px"><button id="btn-subagent-new-empty" class="btn primary">＋ 新建子智能体</button></div></div>
+					<p class="dim small" id="subagent-custom-dir" style="word-break:break-all"></p>
+				</div>
+				<p class="dim small">子智能体 = subagent 工具的角色预设（P64 四角色 + 自定义）。派发时传 role 即按此处的工具白名单与提示词运行；<b>禁用后立即回退 explore 只读角色</b>，新派发生效。</p>
+			</div>
+
+			<div id="tab-commands" class="tab-pane hidden"><!-- P73：全局指令 ~/.pi/agent/AGENTS.md -->
+				<div id="commands-global-card">
+					<p class="small"><b><i data-lucide="file-text"></i> 全局指令</b> <span class="dim small">对所有会话生效，<b>优先于项目指令</b>。保存前自动备份一份 <code>AGENTS.md.bak</code>（防手抖）</span></p>
+					<p class="dim small" id="commands-global-path" style="font-family:ui-monospace,Consolas,monospace;word-break:break-all"></p>
+					<textarea id="commands-global-text" class="input" rows="16" style="min-height:260px;width:100%;font-family:ui-monospace,Consolas,monospace;resize:vertical" placeholder="# 全局指令&#10;- 在这里写跨项目通用的工作约定…"></textarea>
+					<div class="form-row">
+						<span id="commands-saved-at" class="dim small"></span>
+						<button id="btn-commands-save" class="btn primary">保存指令</button>
+						<span id="commands-msg" class="msg-tip"></span>
+					</div>
+				</div>
+			</div>
+
 			<div id="tab-skills" class="tab-pane hidden">
 				<div class="skill-head">
 					<b>技能</b>
+					<!-- P73 第二批：工具行筛选 chips（全部/全局/项目，单选；N=对应数量实时） -->
+					<div class="skill-chips">
+						<button id="skill-chip-all" class="chip chip-on" data-filter="all">全部 <span id="skill-chip-all-n">0</span></button>
+						<button id="skill-chip-global" class="chip" data-filter="global">全局 <span id="skill-chip-global-n">0</span></button>
+						<button id="skill-chip-project" class="chip" data-filter="project">项目 <span id="skill-chip-project-n">0</span></button>
+					</div>
 					<span id="skill-count" class="dim small"></span>
 					<div class="spacer"></div>
 					<input id="skill-search" class="input" placeholder="搜索技能…" />
 					<button id="btn-skill-refresh" class="icon-btn" title="重新扫描">↻</button>
+					<!-- P73 第二批：工具行「导入」——行为与原 btn-skill-install 一致（原按钮原 id 原位保留，e2e 依赖） -->
+					<button id="btn-skill-import" class="btn ghost" title="从 GitHub 导入技能"><i data-lucide="download"></i> 导入</button>
 					<button id="btn-skill-new" class="btn ghost">＋ 新建</button>
 				</div>
 				<div id="skill-new-form" class="form-row hidden">
@@ -377,6 +483,26 @@
 					<button id="btn-skill-install" class="btn primary"><i data-lucide="download"></i> 安装</button>
 					<span id="skill-install-msg" class="msg-tip"></span>
 				</div>
+				<!-- P73 第二批：全局级 / 项目级 两级分区（对标 Cherry Studio 技能页）；office-card 等既有卡位置不动 -->
+				<div id="skills-global-card" class="skill-sec">
+					<div class="skill-sec-head">
+						<b>全局级</b>
+						<code id="skill-global-path" class="skill-sec-path dim small">~/.pi/agent/skills</code>
+						<div class="spacer"></div>
+						<span id="skill-global-count" class="badge-dim small">0</span>
+					</div>
+					<div id="skill-list"></div>
+				</div>
+				<div id="skills-project-card" class="skill-sec">
+					<div class="skill-sec-head">
+						<b>项目级</b>
+						<code id="skill-project-path" class="skill-sec-path dim small"></code>
+						<div class="spacer"></div>
+						<span id="skill-project-count" class="badge-dim small">0</span>
+					</div>
+					<div id="skill-project-list"></div>
+				</div>
+				<p class="settings-sec">集成与工具</p><!-- P71 第三轮 -->
 				<div id="office-card" class="hidden">
 					<p class="small"><b><i data-lucide="package"></i> 内置办公技能</b> <span class="dim small">Word / PDF / PPT / Excel —— 随软件自带，缺失的启动时自动部署；删除后不复活，修复可覆盖重装</span></p>
 					<div id="office-skills" class="form-grid"></div>
@@ -385,80 +511,8 @@
 						<span id="office-msg" class="msg-tip"></span>
 					</div>
 				</div>
-
-				<div id="mcp-card">
-					<p class="small"><b><i data-lucide="plug"></i> MCP 服务器</b> <span class="dim small">配置文件 ~/.pi/agent/mcp.json（对齐 Claude Desktop / Codex 的 mcpServers 格式）；重连后新会话生效</span></p>
-					<div id="mcp-list" class="dim small">加载中…</div>
-					<div class="form-row">
-						<button id="btn-mcp-reconnect" class="btn ghost">↻ 重连全部</button>
-						<div id="mcp-msg" class="msg-tip"></div>
-					</div>
-				</div>
-
-				<div id="audit-card">
-					<p class="small"><b><i data-lucide="shield"></i> 安全审计</b> <span class="dim small">所有非只读工具调用落审计日志（~/.pi/agent/audit/，按日 JSONL：模式 / 决策 / 命令摘要）；危险命令在全自动档也强制确认，后台任务直接拒绝</span></p>
-					<div class="form-row">
-						<button id="btn-audit-open" class="btn ghost"><i data-lucide="folder-open"></i> 打开审计日志文件夹</button>
-					</div>
-				</div>
-
-				<div id="web-card">
-					<p class="small"><b><i data-lucide="globe"></i> 联网检索</b> <span class="dim small">内置 webfetch（抓网页转文本）与 websearch（联网搜索）两个只读工具，全档位可用；已拦截内网/环回地址。搜索默认走 DuckDuckGo，配 Tavily key（<a href="https://tavily.com" style="color:var(--accent)">tavily.com</a> 每月免费 1000 次）更稳更准</span></p>
-					<div class="form-row">
-						<input id="tavily-key" type="password" placeholder="Tavily API key（tvly-…，可选）" style="flex:1" />
-						<button id="btn-web-save" class="btn primary">保存</button>
-					</div>
-					<div id="web-msg" class="msg-tip" style="margin-top:6px"></div>
-				</div>
-
-				<div id="image-card">
-					<p class="small"><b><i data-lucide="image"></i> 生图 API</b> <span class="dim small">默认走智谱 CogView-4（免配置）；要接第三方生图服务（OpenAI 兼容 images API）才需要填</span></p>
-					<div class="form-row">
-						<input id="image-baseurl" type="text" placeholder="Base URL（默认 https://open.bigmodel.cn/api/paas/v4）" style="flex:1" />
-					</div>
-					<div class="form-row">
-						<input id="image-model" type="text" placeholder="模型（默认 cogview-4，可填 image-2 等）" style="flex:1" />
-						<input id="image-key" type="password" placeholder="API key（留空则用智谱 key）" style="flex:1" />
-					</div>
-					<div class="form-row">
-						<button id="btn-image-save" class="btn primary">保存</button>
-					</div>
-					<div id="image-msg" class="msg-tip" style="margin-top:6px"></div>
-				</div>
-
-				<div id="ctx-card">
-					<p class="small"><b><i data-lucide="scroll-text"></i> 上下文管理</b> <span class="dim small">接近窗口上限时自动把历史压缩成摘要（默认开）；工具栏 🗜 可随时手动压缩</span></p>
-					<div class="form-row">
-						<label class="small" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-							<input id="auto-compact-toggle" type="checkbox" style="accent-color:var(--accent)" />
-							自动压缩上下文
-						</label>
-					</div>
-				</div>
-
-				<div id="hooks-card">
-					<p class="small"><b><i data-lucide="anchor"></i> Hooks（工具调用钩子）</b> <span class="dim small">在 ~/.pi/agent/hooks.json 配置数组，每次工具调用前/后执行你的本地命令，可用于自动 lint、记录日志等；命令失败默认仅记日志，blockOnError: true 可拦截工具调用（模板变量 {{input.path}}、{{input.command}}）；注意：钩子命令以你的身份在本机执行，请只放自己写的命令</span></p>
-					<div class="form-row">
-						<button id="btn-hooks-sample" class="btn ghost"><i data-lucide="file-plus"></i> 创建示例</button>
-						<button id="btn-hooks-open" class="btn ghost"><i data-lucide="folder-open"></i> 打开配置</button>
-						<span id="hooks-msg" class="dim small"></span>
-					</div>
-				</div>
-
-				<div id="update-card">
-					<p class="small"><b><i data-lucide="arrow-up-circle"></i> 关于与更新</b> <span class="dim small" id="update-line">当前版本 —</span></p>
-					<p class="small dim" id="update-hint">更新源：~/.pi/agent/updater.json（github owner/repo 或 generic url）</p>
-					<div class="form-row">
-						<button id="btn-update-check" class="btn ghost">⟳ 检查更新</button>
-						<button id="btn-update-download" class="btn ghost" hidden><i data-lucide="download"></i> 下载新版</button>
-						<button id="btn-update-install" class="btn primary" hidden><i data-lucide="refresh-cw"></i> 重启并安装</button>
-						<button id="btn-update-config" class="btn ghost"><i data-lucide="settings"></i> 配置更新源</button>
-					</div>
-					<div id="update-progress" class="dim small" hidden style="height:4px;background:var(--border,rgba(128,128,128,.3));border-radius:2px;overflow:hidden"><div id="update-progress-fill" style="height:100%;width:0%;background:var(--accent,#4a9eff);transition:width .3s"></div></div>
-					<p class="small" id="update-msg"></p>
-				</div>
+				<!-- P73 第三批：MCP/审计/联网检索/生图/上下文/Hooks 六卡迁出到 #tab-tools（见下方新 pane），此处只留技能相关 -->
 				<p class="dim small">技能 = SKILL.md 能力包（Agent Skills 标准）。启用后写入系统提示词，<b>新会话生效</b>。外部来源（其他工具共享）只读展示。</p>
-				<div id="skill-list"></div>
 			</div>
 
 			<div id="tab-computer" class="tab-pane hidden">
@@ -487,12 +541,194 @@
 				</div>
 			</div>
 
+			<!-- P73 第三批：工具与集成 tab —— 六张非技能卡自 tab-skills 迁入（内部结构/元素 id 原样搬），ssIndex 按 div[id$='-card'] 自动索引 -->
+			<div id="tab-tools" class="tab-pane hidden">
+				<p class="dim small">工具与集成 = Agent 的外挂能力（MCP/检索/生图）与运行行为（审计/Hooks/上下文）。</p>
+				<p class="settings-sec">集成</p><!-- P73 -->
+				<div id="mcp-card">
+					<p class="small"><b><i data-lucide="plug"></i> MCP 服务器</b> <span class="dim small">配置文件 ~/.pi/agent/mcp.json（对齐 Claude Desktop / Codex 的 mcpServers 格式）；重连后新会话生效</span></p>
+					<div id="mcp-list" class="dim small">加载中…</div>
+					<div class="form-row">
+						<button id="btn-mcp-reconnect" class="btn ghost">↻ 重连全部</button>
+						<button id="btn-mcp-open" class="btn ghost"><i data-lucide="file-json"></i> 打开/创建配置</button>
+						<div id="mcp-msg" class="msg-tip"></div>
+					</div>
+				</div>
+
+				<div id="web-card">
+					<p class="small"><b><i data-lucide="globe"></i> 联网检索</b> <span class="dim small">内置 webfetch（抓网页转文本）与 websearch（联网搜索）两个只读工具，全档位可用；已拦截内网/环回地址。搜索默认走 DuckDuckGo，配 Tavily key（<a href="https://tavily.com" style="color:var(--accent)">tavily.com</a> 每月免费 1000 次）更稳更准</span></p>
+					<div class="form-row">
+						<input id="tavily-key" type="password" placeholder="Tavily API key（tvly-…，可选）" style="flex:1" />
+						<button id="btn-web-save" class="btn primary">保存</button>
+					</div>
+					<div id="web-msg" class="msg-tip" style="margin-top:6px"></div>
+				</div>
+
+				<div id="image-card">
+					<p class="small"><b><i data-lucide="image"></i> 生图 API</b> <span class="dim small">默认走智谱 CogView-4（免配置）；要接第三方生图服务（OpenAI 兼容 images API）才需要填</span></p>
+					<div class="form-row">
+						<input id="image-baseurl" type="text" placeholder="Base URL（默认 https://open.bigmodel.cn/api/paas/v4）" style="flex:1" />
+					</div>
+					<div class="form-row">
+						<input id="image-model" type="text" placeholder="模型（默认 cogview-4，可填 image-2 等）" style="flex:1" />
+						<input id="image-key" type="password" placeholder="API key（留空则用智谱 key）" style="flex:1" />
+					</div>
+					<div class="form-row">
+						<button id="btn-image-save" class="btn primary">保存</button>
+					</div>
+					<div id="image-msg" class="msg-tip" style="margin-top:6px"></div>
+				</div>
+				<p class="settings-sec">安全</p><!-- P73 -->
+				<div id="audit-card">
+					<p class="small"><b><i data-lucide="shield"></i> 安全审计</b> <span class="dim small">所有非只读工具调用落审计日志（~/.pi/agent/audit/，按日 JSONL：模式 / 决策 / 命令摘要）；危险命令在全自动档也强制确认，后台任务直接拒绝</span></p>
+					<div class="form-row">
+						<button id="btn-audit-open" class="btn ghost"><i data-lucide="folder-open"></i> 打开审计日志文件夹</button>
+					</div>
+				</div>
+				<p class="settings-sec">高级</p><!-- P73（原技能页「高级」小节随卡迁入） -->
+				<div id="ctx-card">
+					<p class="small"><b><i data-lucide="scroll-text"></i> 上下文管理</b> <span class="dim small">接近窗口上限时自动把历史压缩成摘要（默认开）；工具栏 🗜 可随时手动压缩</span></p>
+					<div class="form-row">
+						<label class="small" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+							<input id="auto-compact-toggle" type="checkbox" style="accent-color:var(--accent)" />
+							自动压缩上下文
+						</label>
+					</div>
+				</div>
+
+				<div id="hooks-card">
+					<p class="small"><b><i data-lucide="anchor"></i> Hooks（工具调用钩子）</b> <span class="dim small">在 ~/.pi/agent/hooks.json 配置数组，每次工具调用前/后执行你的本地命令，可用于自动 lint、记录日志等；命令失败默认仅记日志，blockOnError: true 可拦截工具调用（模板变量 {{input.path}}、{{input.command}}）；注意：钩子命令以你的身份在本机执行，请只放自己写的命令</span></p>
+					<div class="form-row">
+						<button id="btn-hooks-sample" class="btn ghost"><i data-lucide="file-plus"></i> 创建示例</button>
+						<button id="btn-hooks-open" class="btn ghost"><i data-lucide="folder-open"></i> 打开配置</button>
+						<span id="hooks-msg" class="dim small"></span>
+					</div>
+				</div>
+			</div>
+			<!-- P74：常规 tab（主题/字体/字号外观偏好，全部 localStorage 记忆；字体候选 canvas 探测过滤未安装项） -->
+			<div id="tab-general" class="tab-pane hidden">
+				<div id="appearance-card">
+					<p class="small"><b><i data-lucide="palette"></i> 主题</b> <span class="dim small">跟随系统跟随 Windows 深浅色；手动档立即生效</span></p>
+					<div class="form-row">
+						<select id="sel-theme" class="input">
+							<option value="system">跟随系统</option>
+							<option value="light">浅色</option>
+							<option value="dark">深色</option>
+						</select>
+					</div>
+				</div>
+				<div id="font-card">
+					<p class="small"><b><i data-lucide="type"></i> 界面字体</b> <span class="dim small">仅列出本机已安装的候选字体；「系统默认」恢复内置字体栈</span></p>
+					<div class="form-row">
+						<select id="sel-font" class="input"></select>
+					</div>
+				</div>
+				<div id="zoom-card">
+					<p class="small"><b><i data-lucide="zoom-in"></i> 界面缩放</b> <span class="dim small">90–130%，全局生效（Chromium zoom）</span></p>
+					<div class="form-row">
+						<input id="rng-zoom" type="range" min="90" max="130" step="5" value="100" style="width:200px" />
+						<span id="zoom-val" class="dim small" style="width:44px;text-align:right">100%</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- P74：信息 tab —— #update-card 自左导航整体迁入（内部元素 id 原样保留，p33 e2e 无需感知）+ 应用/日志/问题反馈/开发者模式行卡 -->
+			<div id="tab-about" class="tab-pane hidden">
+				<div id="update-card">
+					<p class="small"><b><i data-lucide="arrow-up-circle"></i> 软件更新</b> <span class="dim small" id="update-line">当前版本 —</span></p>
+					<p class="small dim" id="update-hint">更新源：~/.pi/agent/updater.json（github owner/repo 或 generic url）</p>
+					<div class="form-row">
+						<button id="btn-update-check" class="btn ghost">⟳ 检查更新</button>
+						<button id="btn-update-download" class="btn ghost" hidden><i data-lucide="download"></i> 下载新版</button>
+						<button id="btn-update-install" class="btn primary" hidden><i data-lucide="refresh-cw"></i> 重启并安装</button>
+						<button id="btn-update-config" class="btn ghost"><i data-lucide="settings"></i> 配置更新源</button>
+						<button id="btn-install-guide" class="btn ghost">📖 安装指引</button>
+						<button id="btn-logs-export" class="btn ghost">📦 导出日志包</button>
+						<span id="logs-msg" class="msg-tip"></span>
+					</div>
+					<div id="update-progress" class="dim small" hidden style="height:4px;background:var(--border,rgba(128,128,128,.3));border-radius:2px;overflow:hidden"><div id="update-progress-fill" style="height:100%;width:0%;background:var(--accent,#4a9eff);transition:width .3s"></div></div>
+					<p class="small" id="update-msg"></p>
+				</div>
+				<div id="about-app-card">
+					<p class="small"><b><i data-lucide="info"></i> 应用</b> <span class="dim small">OpenPi Desktop 本地优先的编码 Agent</span></p>
+					<div class="about-ver">
+						<b id="about-version">v—</b>
+						<div class="dim small" id="about-electron">Electron —</div>
+					</div>
+				</div>
+				<div id="about-log-card">
+					<p class="small"><b><i data-lucide="scroll-text"></i> 日志</b> <span class="dim small">主进程日志 ~/.pi/agent/logs/main.log（排障报障用）</span></p>
+					<div class="form-row">
+						<button id="btn-open-logs" class="btn ghost"><i data-lucide="folder-open"></i> 打开日志</button>
+					</div>
+				</div>
+				<div id="about-feedback-card">
+					<p class="small"><b><i data-lucide="bug"></i> 问题反馈</b> <span class="dim small">GitHub Issues（自动附版本号，更好定位）</span></p>
+					<div class="form-row">
+						<button id="btn-feedback" class="btn ghost"><i data-lucide="external-link"></i> 提交 Issue</button>
+					</div>
+				</div>
+				<div id="about-devtools-card">
+					<p class="small"><b><i data-lucide="terminal"></i> 开发者模式</b> <span class="dim small">打开独立 DevTools 窗口（排障用，普通用户无需开启）</span></p>
+					<div class="form-row">
+						<label class="switch"><input type="checkbox" id="chk-devtools" /><span class="slider"></span></label>
+					</div>
+				</div>
+			</div>
+
+			<!-- P74：扩展 tab —— 内置能力聚合（静态诚实卡）+ MCP 动态行；市场入口为诚实占位（跳仓库主页） -->
+			<div id="tab-extensions" class="tab-pane hidden">
+				<div class="skill-head">
+					<b>扩展</b>
+					<span id="ext-enabled-count" class="dim small"></span>
+					<div class="spacer"></div>
+					<button id="btn-marketplace" class="btn ghost"><i data-lucide="store"></i> 浏览市场</button>
+				</div>
+				<p class="dim small">内置能力随软件自带、开箱即用，无需安装；外部扩展目前经 MCP 接入（「工具与集成」→ MCP 配置）。</p>
+				<div id="ext-builtin-list"></div>
+				<div id="ext-mcp-card">
+					<p class="small"><b><i data-lucide="plug"></i> MCP 服务器</b> <span class="dim small">连接状态实时（数据源同「工具与集成」）</span></p>
+					<div id="ext-mcp-list" class="dim small">加载中…</div>
+				</div>
+			</div>
+
+							</div><!-- /settings-content（P71） -->
+						</div><!-- /settings-body（P71） -->
+
 			<div class="modal-foot dim small">
 				配置即契约：本页只写 Pi 标准文件（auth.json / models.json），与 pi CLI 双向兼容。保存后点击「重载模型目录」生效。
 				<div class="spacer"></div>
 				<button id="btn-check-updates" class="btn ghost">检查内核更新</button>
 				<span id="update-info" class="small dim"></span>
 				<button id="btn-reload-models" class="btn ghost">↻ 重载模型目录</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- P71：首次切「全自动」档的风险确认（轻量 confirm modal，复用 modal 体系） -->
+	<div id="fa-confirm-mask" class="modal-mask hidden">
+		<div class="modal fa-modal">
+			<div class="modal-head"><span>⚠ 开启全自动模式？</span></div>
+			<div class="fa-body">
+				<p>全自动模式下，AI 可以<b>直接修改文件、执行命令、操作电脑</b>，无需逐步向你确认。</p>
+				<p class="dim small">建议先在「自动编辑」档用熟、了解它的行为习惯后再开；危险命令在全自动档下仍会强制确认。</p>
+				<p><b>确认开启？</b></p>
+			</div>
+			<div class="form-row" style="justify-content:flex-end">
+				<button id="btn-fa-cancel" class="btn ghost">取消</button>
+				<button id="btn-fa-ok" class="btn danger">仍要开启</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- P76 交付3：会话模型展示管理（轻量多选弹窗，复用 modal 体系；置于 #settings 之外，不进 P67 设置搜索索引） -->
+	<div id="model-pins-mask" class="modal-mask hidden">
+		<div class="modal model-pins-modal">
+			<div class="modal-head"><span>⚙ 管理会话模型展示列表</span></div>
+			<p class="dim small" style="margin:0 0 8px">勾选的模型会进入会话模型下拉的「★ 常用」段；一个都不勾 = 全部按供应商展示。勾选即时生效并保存在本机。</p>
+			<div id="model-pins-list" class="model-pins-list"></div>
+			<div class="form-row" style="justify-content:flex-end">
+				<button id="btn-model-pins-close" class="btn ghost">关闭</button>
 			</div>
 		</div>
 	</div>
@@ -535,6 +771,8 @@
 	<script src="vendor/auto-render.min.js"></script>
 	<script src="vendor/echarts.min.js"></script>
 	<script src="vendor/lucide.min.js"></script>
+	<script src="p72-logic.js"></script><!-- P72：纯逻辑层（subagent 卡状态机 + 时间线计数），须在 app.js 之前加载 -->
+	<script src="p73-skills-logic.js"></script><!-- P73 第二批：技能页筛选/计数纯逻辑层，须在 app.js 之前加载 -->
 	<script src="app.js"></script>
 </body>
 </html>

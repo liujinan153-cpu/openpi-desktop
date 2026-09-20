@@ -2,7 +2,9 @@
 
 基于 [Pi coding agent](https://pi.dev) SDK 的 Windows 桌面 AI Agent。**不修改 Pi 源码**，集成会话、终端、Git、浏览器/电脑操作、MCP、并行 worker 与办公技能。
 
-> 当前为公开 Beta。安装包尚未购买 Windows 商业代码签名证书，首次安装可能出现 SmartScreen「未知发布者」提示；请只从本项目 GitHub Releases 下载并核对版本。
+> 👉 内测用户请先看 [傻瓜安装指引](docs/INSTALL-GUIDE.md)：七步从下载到发出第一条消息，含 SmartScreen 提示处理。
+>
+> ⚠️ **本项目为定向内测（开发者预览），不推荐外部用户下载使用。** 功能仍在快速迭代、稳定性未经大规模验证，仅面向作者邀请的测试用户；遇到问题请用 设置 → 导出日志包 反馈。安装包尚未购买 Windows 商业代码签名证书，首次安装可能出现 SmartScreen「未知发布者」提示，请只从本项目 GitHub Releases 下载并核对版本。
 
 ## 下载与更新
 
