@@ -121,14 +121,29 @@ async function uploadAsset(relId, filePath, name) {
 		}
 	}
 	const t0 = Date.now();
-	const resp = execFileSync(
-		fs.existsSync(CURL_FALLBACK) ? CURL_FALLBACK : "curl",
-		["-s", "--http1.1", "-H", "Expect:", "--max-time", "2400", "-X", "POST", "-H", `Authorization: token ${TOKEN}`, "-H", "Content-Type: application/octet-stream", "--data-binary", `@${filePath}`, `${GH_UPLOAD}/${relId}/assets?name=${encodeURIComponent(name)}`],
-		{ encoding: "utf8", maxBuffer: 10e6, timeout: 2_500_000, shell: false },
-	);
-	const j = JSON.parse(resp);
-	if (j.state !== "uploaded") throw new Error(`上传 ${name} 异常：state=${j.state} ${j.message ?? ""}`);
-	console.log(`  ✔ ${name}（${(j.size / 1e6).toFixed(0)}MB，${((Date.now() - t0) / 60000).toFixed(1)} 分钟）`);
+	// P76 坐坑：312MB 大文件直传公网易遇 ECONNABORTED/ECONNRESET（实测两连断）——3 次退避重试（30s/60s/120s）
+	let lastErr = null;
+	for (let attempt = 1; attempt <= 3; attempt++) {
+		try {
+			const resp = execFileSync(
+				fs.existsSync(CURL_FALLBACK) ? CURL_FALLBACK : "curl",
+				["-s", "--http1.1", "-H", "Expect:", "--max-time", "2400", "-X", "POST", "-H", `Authorization: token ${TOKEN}`, "-H", "Content-Type: application/octet-stream", "--data-binary", `@${filePath}`, `${GH_UPLOAD}/${relId}/assets?name=${encodeURIComponent(name)}`],
+				{ encoding: "utf8", maxBuffer: 10e6, timeout: 2_500_000, shell: false },
+			);
+			const j = JSON.parse(resp);
+			if (j.state !== "uploaded") throw new Error(`上传 ${name} 异常：state=${j.state} ${j.message ?? ""}`);
+			console.log(`  ✔ ${name}（${(j.size / 1e6).toFixed(0)}MB，${((Date.now() - t0) / 60000).toFixed(1)} 分钟${attempt > 1 ? `，第 ${attempt} 次重试成功` : ""}）`);
+			return;
+		} catch (err) {
+			lastErr = err;
+			if (attempt < 3) {
+				const wait = attempt * 30_000;
+				console.log(`  ⚠ ${name} 第 ${attempt} 次上传失败（${String(err?.message ?? err).slice(0, 120)}），${wait / 1000}s 后重试…`);
+				Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, null, wait);
+			}
+		}
+	}
+	throw lastErr;
 }
 
 console.log(`GitHub：发布 v${ver} → ${GH_OWNER}/${GH_REPO}`);
