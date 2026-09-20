@@ -50,6 +50,8 @@ process.on("uncaughtException", (err) => {
 	// P71：initLogger 注册监听后会吞掉 Electron 默认错误弹窗，这里补一个可见提示（每会话一次）
 	if (fatalShown) return;
 	fatalShown = true;
+	// P76 修复：关窗瞬间 "Object has been destroyed" 属退出时序噪音（根因已在 closed 处理器捕获 wcId 修复），弹窗反成打扰
+	if (/Object has been destroyed/i.test(String(err?.message ?? err))) return;
 	try { dialog.showErrorBox("OpenPi 遇到未处理错误", String(err?.stack ?? err)); } catch { /* app 未就绪等场景忽略 */ }
 });
 /** webContents.id -> AgentHost */
@@ -126,9 +128,10 @@ function createWindow() {
 		if (removed.length) console.error(`[sandbox] 清理过期沙箱 ${removed.length} 个: ${removed.join(", ")}`);
 	} catch (err) { console.error(`[sandbox] 清理失败: ${err.message ?? err}`); }
 	hosts.set(win.webContents.id, host);
+	const wcId = win.webContents.id; // P76 修复：closed 时 webContents 已销毁，必须提前捕获 id（"Object has been destroyed" 关窗报错根因）
 	win.on("closed", () => {
 		host.dispose();
-		hosts.delete(win.webContents.id);
+		hosts.delete(wcId);
 	});
 	return win;
 }

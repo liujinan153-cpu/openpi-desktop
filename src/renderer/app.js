@@ -2729,8 +2729,12 @@ function handleM2Event(e) {
 	else if (e.type === "ui_request") {
 		uiModal(e).then((v) => window.openpi.uiRespond(e.id, v));
 	} else if (e.type === "ui_notify") {
+		// P76 修复：qmd 记忆扩展未安装的原始安装指引很长且裸奔在欢迎屏——人话化为一行
+		if (/^memory_search requires qmd/.test(e.message ?? "")) {
+			addSysLine("ℹ 跨会话记忆搜索未启用（可选依赖 qmd 未安装）；需要时运行 npm install -g @tobilu/qmd");
+			return;
+		}
 		addSysLine(`${e.level === "error" ? "✗" : e.level === "warning" ? "⚠" : "ℹ"} ${e.message}`, e.level === "error");
-		if (e.level === "error" || e.level === "warning") pushNotif(e.level === "error" ? "❗" : "⚠️", e.level === "error" ? "运行异常" : "警告", e.message);
 	} else if (e.type === "agent_recovering") {
 		addSysLine("⚠ Agent 进程异常退出，正在恢复最近会话；中断的本轮不会自动重放。", true);
 		pushNotif("⚠️", "Agent 正在恢复", "会话与工作区将自动恢复，中断的本轮可稍后重试");
