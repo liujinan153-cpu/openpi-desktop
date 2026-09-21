@@ -33,6 +33,7 @@ import { codeIntelTools, setCodeIntelWorkspace } from "./code-intel.mjs"; // P58
 import { imageTools } from "./image-tools.mjs"; // P61 CogView 生图
 import { repoMapSystemPrompt } from "./repo-map.mjs"; // P62 工作区地图注入
 import { parseSubagentJsonFile, resolveWorkerRole } from "./p73-logic.mjs"; // P73 子智能体：自定义角色合并 + 禁用清单回退（纯函数层）
+import { workerActivityFromEvent } from "./p76-activity.mjs"; // P76 子智能体动作流水：SDK worker 事件 → 摘要（纯函数层）
 
 /** P64：worker 专用命令执行工具——不给内置 bash（#117：worker 会话激活内置 bash 会卡死主会话 agent loop，原因在 SDK 的 shell 初始化），自定义实现还能精确拦危险命令 */
 function buildRunCmdTool(host) {
@@ -881,10 +882,26 @@ export class AgentHost {
 				// P72 交付1：模型徽标（SDK session.model 可解析才给，解析失败就不显示，不造假）+ 工具调用计数透传（只报数不转发内容，避免刷屏）
 				worker.model = session?.model?.id ?? null;
 				try {
+					// P76：worker 动作流水转发——start 构造摘要行，end 原位补 ✓/✗+耗时；每 worker 最多 500 条（超出停发，协作卡计数不受影响）
+					const actStarts = new Map(); // toolCallId → start 时刻（算耗时用，不入快照）
 					unsubSteps = session.subscribe?.((e) => {
-						if (e?.type !== "tool_execution_start") return;
-						worker.steps = (worker.steps ?? 0) + 1;
-						this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) });
+						const et = e?.type;
+						if (et === "tool_execution_start") {
+							worker.steps = (worker.steps ?? 0) + 1;
+							this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) });
+						}
+						if ((worker.activitySent ?? 0) >= 500) return; // P76 限流：协作卡 steps 照常累加，流水停发
+						const a = workerActivityFromEvent(e);
+						if (!a) return;
+						worker.activitySent = (worker.activitySent ?? 0) + 1;
+						if (a.kind === "tool") {
+							actStarts.set(a.toolCallId, Date.now());
+							this.pushEvent({ type: "worker_activity", id: worker.id, ts: Date.now(), ...a });
+						} else {
+							const t0 = actStarts.get(a.toolCallId);
+							actStarts.delete(a.toolCallId);
+							this.pushEvent({ type: "worker_activity", id: worker.id, ts: Date.now(), ...a, ms: t0 != null ? Date.now() - t0 : null });
+						}
 					});
 				} catch { /* 订阅不可用 → 协作卡显示「后台执行中」 */ }
 				this.pushEvent({ type: "worker_update", worker: this.#workerSnapshot(worker) }); // 会话就绪后的第二次推送（补模型徽标）

@@ -26,6 +26,8 @@ const state = {
 	queue: { steering: 0, followUp: 0 },
 	subagentCards: new Map(), // P72 交付1：worker.id → 聊天流内嵌协作卡 rec
 	usageTotal: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+	workerFeeds: new Map(), // P76 交付2：worker.id → { worker, entries[], rowByTcid }（dock「子智能体」页数据源）
+	swSelected: null, // P76：当前选中的 worker id（默认跟随最新）
 	sessions: [],
 	collapsed: new Set(), // 侧栏折叠的项目 cwd
 	sideTab: "projects", // 侧栏 tab：projects | flat
@@ -741,6 +743,11 @@ function buildSubagentCard(w) {
 		root.classList.toggle("collapsed");
 		rec.chev.textContent = root.classList.contains("collapsed") ? "›" : "⌄";
 	});
+	// P76：点协作卡的 worker 节点 → 打开 dock「子智能体」页并选中该 worker（可选联动，从简实现）
+	root.querySelector(".sa-child").addEventListener("click", () => {
+		showDock("subagents");
+		selectWorker(w.id);
+	});
 	return rec;
 }
 
@@ -762,6 +769,167 @@ function updateSubagentCard(rec, w) {
 			rec.chev.textContent = "›";
 		}
 		scrollBottom();
+	}
+}
+
+/* ================= P76 交付2：dock「子智能体」页（worker 动作流水） ================= */
+/* 数据源：主进程 worker_activity 事件（agent-host.mjs #runWorker 订阅转发，p76-activity.mjs 构造摘要）。
+   左列 worker 列表（新 worker 插头部），右列选中 worker 的动作流水；页不可见时只存数据，切进来一次性渲染。 */
+const swListEl = $("sw-list");
+const swFeedEl = $("sw-feed");
+const SW_ICONS = { "编辑": "file-pen", "运行": "terminal", "读取": "file-text", "搜索": "search" };
+
+function swFeedVisible() {
+	return typeof dockTab === "string" && dockTab === "subagents" && !dock.hidden;
+}
+
+function swTitleIcon(title) {
+	const head = String(title ?? "").split(" ")[0];
+	return SW_ICONS[head] ?? "wrench";
+}
+
+function fmtMs(ms) {
+	const n = Number(ms);
+	if (!Number.isFinite(n) || n < 0) return "";
+	return n < 1000 ? `${Math.round(n)}ms` : `${(n / 1000).toFixed(1)}s`;
+}
+
+/** 会话切换清空（resumeSession / resetChat 与 clearSubagentCards 同点调用） */
+function clearWorkerFeeds() {
+	state.workerFeeds.clear();
+	state.swSelected = null;
+	renderSwList();
+	renderSwFeed();
+	updateSwBadge();
+}
+
+function updateSwBadge() {
+	let n = 0;
+	for (const f of state.workerFeeds.values()) if (f.worker?.status === "running") n++;
+	const el = $("subagents-cnt");
+	if (!el) return;
+	el.textContent = n > 99 ? "99+" : String(n);
+	el.hidden = n === 0;
+}
+
+/** worker_update → 数据层登记（新 worker 入 Map；列表/徽标刷新；新 worker 默认选中） */
+function trackWorkerInFeed(w) {
+	if (!w?.id || !swListEl) return;
+	let feed = state.workerFeeds.get(w.id);
+	const isNew = !feed;
+	if (feed) {
+		feed.worker = w;
+		// worker 终态：仍在转的行（没等到 tool_end 的）把 spinner 摘掉，不假转
+		if (P72.subagentTerminal(w.status)) {
+			for (const en of feed.entries) {
+				if (en.ok != null || !en.el) continue;
+				en.el.querySelector(".sw-flag").innerHTML = `<span class="sw-ms">—</span>`;
+			}
+		}
+	} else {
+		state.workerFeeds.set(w.id, { worker: w, entries: [], rowByTcid: new Map() });
+	}
+	renderSwList();
+	updateSwBadge();
+	if (isNew) selectWorker(w.id); // 默认选最新的 worker
+}
+
+function renderSwList() {
+	if (!swListEl) return;
+	swListEl.innerHTML = "";
+	if (!state.workerFeeds.size) {
+		swListEl.innerHTML = `<div class="sw-pad dim small">暂无 worker</div>`;
+		return;
+	}
+	for (const [id, f] of [...state.workerFeeds].reverse()) { // 新 worker 插列表头
+		const st = P72.subagentStatus(f.worker.status);
+		const item = document.createElement("button");
+		item.type = "button";
+		item.className = "sw-item";
+		item.dataset.worker = id;
+		item.innerHTML = `<span class="sw-dot ${st.cls}"></span><span class="sw-role">${escapeHtml(f.worker.role ?? "worker")}</span>`
+			+ `<span class="sw-st ${st.cls}">${escapeHtml(st.label)}</span>`
+			+ `<span class="sw-meta">${escapeHtml(P72.subagentStats(f.worker))}</span>`;
+		item.addEventListener("click", () => selectWorker(id));
+		swListEl.appendChild(item);
+	}
+}
+
+function selectWorker(id) {
+	state.swSelected = id;
+	for (const el of swListEl.querySelectorAll(".sw-item")) el.classList.toggle("on", el.dataset.worker === id);
+	renderSwFeed();
+}
+
+/** dock 页打开/切换 worker 时整区重绘；平时只在页可见时增量追加 */
+function renderSubagentsPane() {
+	renderSwList();
+	renderSwFeed();
+}
+
+function renderSwFeed() {
+	if (!swFeedEl) return;
+	swFeedEl.innerHTML = "";
+	const feed = state.workerFeeds.get(state.swSelected);
+	if (!feed) {
+		swFeedEl.innerHTML = `<div class="sw-pad dim small sw-empty">暂无子智能体。在对话中派发子任务后，这里实时展示每个 worker 的动作流水。</div>`;
+		return;
+	}
+	if (!feed.entries.length) {
+		swFeedEl.innerHTML = `<div class="sw-pad dim small">（暂无动作记录）</div>`;
+		return;
+	}
+	for (const en of feed.entries) swFeedEl.appendChild(swRow(feed, en));
+	swFeedEl.scrollTop = swFeedEl.scrollHeight;
+}
+
+/** 一行动作：[图标][标题][detail][右侧 徽标/耗时]；运行中带 spinner，tool_end 原位补 ✓/✗+耗时 */
+function swRow(feed, en) {
+	const row = document.createElement("div");
+	row.className = "sw-row";
+	const det = en.detail ? `<span class="sw-detail">${escapeHtml(en.detail)}</span>` : "";
+	const flag = en.ok != null ? swEndFlag(en, en.ok, en.ms) : `<span class="sw-spin"></span>`; // 重绘时已结束的行直接带徽标
+	if (en.ok != null) row.classList.add("ended");
+	row.innerHTML = `<span class="sw-ic"><i data-lucide="${swTitleIcon(en.title)}"></i></span>`
+		+ `<span class="sw-title">${escapeHtml(en.title)}</span>${det}`
+		+ `<span class="sw-flag">${flag}</span>`;
+	en.el = row; // 持有引用：tool_end 到达时原位补徽标；FIFO 淘汰时顺带移除 DOM
+	feed.rowByTcid.set(en.toolCallId, row);
+	return row;
+}
+
+function swEndFlag(en, ok, ms) {
+	const t = fmtMs(ms ?? en.ms);
+	return ok ? `<span class="sw-ok">✓</span>${t ? `<span class="sw-ms">${escapeHtml(t)}</span>` : ""}`
+		: `<span class="sw-bad">✗</span>${t ? `<span class="sw-ms">${escapeHtml(t)}</span>` : ""}`;
+}
+
+/** worker_activity 事件入口：tool 存数据+增量渲染；tool_end 找原行补徽标 */
+function handleWorkerActivity(e) {
+	const feed = state.workerFeeds.get(String(e?.id ?? ""));
+	if (!feed) return;
+	if (e.kind === "tool_end") {
+		const tcid = String(e.toolCallId ?? "");
+		const en = feed.entries.findLast?.((x) => x.toolCallId === tcid && x.ok == null);
+		if (en) { en.ok = !!e.ok; en.ms = e.ms ?? null; }
+		const row = feed.rowByTcid.get(tcid);
+		if (row) {
+			row.querySelector(".sw-flag").innerHTML = swEndFlag(en ?? { ms: e.ms }, !!e.ok, e.ms);
+			row.classList.add("ended");
+		}
+		return;
+	}
+	const en = { kind: e.kind ?? "tool", title: e.title ?? "", detail: e.detail ?? "", toolCallId: String(e.toolCallId ?? ""), ts: e.ts ?? Date.now(), ok: null, ms: null, el: null };
+	feed.entries.push(en);
+	if (feed.entries.length > 300) { // 每 worker 上限 300 条 FIFO（含 DOM 同步淘汰）
+		const old = feed.entries.shift();
+		if (old?.el) old.el.remove();
+	}
+	if (swFeedVisible() && state.swSelected === String(e.id ?? "")) {
+		swFeedEl.querySelector(".sw-pad")?.remove();
+		swFeedEl.appendChild(swRow(feed, en));
+		swFeedEl.scrollTop = swFeedEl.scrollHeight; // 流水对标 tail：新动作贴底
+		refreshIcons();
 	}
 }
 /* ================= 用量与状态 ================= */
@@ -1099,6 +1267,7 @@ async function resumeSession(file) {
 	chat.innerHTML = "";
 	clearSubagentCards(); // P72：换会话时旧协作卡连同计时器一起清理
 	state.usageTotal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+	clearWorkerFeeds(); // P76：dock「子智能体」页流水与列表随会话一起清空
 	renderUsage();
 	state.ctx = null; // 恢复会话的上下文占用未知，等首条 usage 事件重算
 	setStatus("恢复会话…");
@@ -1342,6 +1511,10 @@ function handleEvent(e) {
 
 		case "worker_update": // P72 交付1：worker 生命周期 → 聊天流内嵌协作卡（派发/运行/完成/失败/取消原位更新）
 			renderSubagentCard(e.worker);
+			trackWorkerInFeed(e.worker); // P76：同步 dock「子智能体」页左列表 + 徽标
+			break;
+		case "worker_activity": // P76 交付2：worker 动作流水（start 行 / end 补 ✓✗+耗时）
+			handleWorkerActivity(e);
 			break;
 
 		case "agent_settled":
@@ -1556,6 +1729,7 @@ function resetChat() {
 	renderUsage();
 	state.tools.clear();
 	clearSubagentCards(); // P72：协作卡计时器清干净，避免跨会话泄漏
+	clearWorkerFeeds(); // P76：协作卡与 dock 流水一起清干净，避免跨会话泄漏
 	state.ctx = null; // 新会话上下文从零开始
 	state.turnFiles = new Set();
 	state.turnCard = null;
@@ -3088,7 +3262,7 @@ document.addEventListener("drop", (e) => {
 /* ================= P0：右侧 Dock（标签坞：审核/预览）+ Codex 式审核面板 ================= */
 const GIT_STATUS_COLOR = { M: "var(--warn, #e5c07b)", A: "#98c379", "?": "#61afef", D: "#e06c75", R: "#c678dd" };
 const dock = $("dock");
-const dockPanes = { review: $("dock-pane-review"), preview: $("dock-pane-preview"), terminal: $("dock-pane-terminal"), files: $("dock-pane-files"), tasks: $("dock-pane-tasks") };
+const dockPanes = { review: $("dock-pane-review"), preview: $("dock-pane-preview"), terminal: $("dock-pane-terminal"), files: $("dock-pane-files"), tasks: $("dock-pane-tasks"), subagents: $("dock-pane-subagents") };
 let dockTab = null; // 当前打开的 pane：review | preview | terminal | files | null
 let dockLastTab = "review"; // 关闭后再打开时恢复的标签
 
@@ -3107,6 +3281,7 @@ function showDock(tab) {
 	if (tab === "files") initFilesPane();
 	if (tab === "agents") renderAgentsPane();
 	if (tab === "tasks") renderTasksPane();
+	if (tab === "subagents") renderSubagentsPane(); // P76：切入时一次性重绘列表+选中 worker 流水
 }
 function toggleDock(tab) {
 	if (!dock.hidden && dockTab === tab) closeDock();
@@ -3125,18 +3300,27 @@ $("btn-dock").addEventListener("click", () => (dock.hidden ? showDock(dockLastTa
 
 /* ---- 审核徽标：Agent 改文件后自动刷新（角标计数 / 面板内容） ---- */
 let reviewTimer = null;
+/** 统一刷新入口（P72→dock 归一）：审核页清单 + P72 面板 + 角标徽标；工具改文件 / 切会话都走这里 */
+function refreshReviewUI() {
+	if (dockTab === "review" && !dock.hidden) refreshReview();
+	if (reviewPanelOpen) refreshReviewPanel();
+	updateReviewBadge();
+}
 function scheduleReviewRefresh() {
 	clearTimeout(reviewTimer);
-	reviewTimer = setTimeout(() => {
-		if (dockTab === "review" && !dock.hidden) refreshReview();
-		else updateReviewBadge();
-	}, 600);
+	reviewTimer = setTimeout(refreshReviewUI, 600);
 }
-async function updateReviewBadge() {
+/** 角标计数：优先 review:changes 的 N（与审核页清单同数）；非 git 仓库 / 失败兜底 gitStatus 行数（原逻辑） */
+async function updateReviewBadge(preloaded) {
 	if (!state.session?.workspace) { $("review-cnt").hidden = true; return; }
 	try {
-		const st = await window.openpi.gitStatus();
-		const n = st.split("\n").filter((l) => l.trim() && !l.startsWith("##")).length;
+		let r = preloaded;
+		if (!r) { try { r = await window.openpi.reviewChanges(); } catch { r = null; } }
+		let n = r?.ok ? (r.files ?? []).length : null;
+		if (n == null) {
+			const st = await window.openpi.gitStatus();
+			n = st.split("\n").filter((l) => l.trim() && !l.startsWith("##")).length;
+		}
 		const cnt = $("review-cnt");
 		cnt.textContent = n > 99 ? "99+" : String(n);
 		cnt.hidden = n === 0;
@@ -3188,8 +3372,9 @@ function renderStagedHunks(diffText, filePath) {
 }
 async function refreshReview() {
 	const body = $("review-body");
+	body.innerHTML = '<div class="dim small" style="padding:12px">加载中…</div>';
 	if (!state.session?.workspace) {
-		body.innerHTML = '<div class="dim small" style="padding:12px">当前会话无工作区</div>';
+		body.innerHTML = '<div class="dim small" style="padding:12px">当前会话无工作区（非 git 仓库不可用）</div>';
 		$("review-branch").textContent = "—";
 		$("review-cnt").hidden = true;
 		return;
@@ -3201,12 +3386,24 @@ async function refreshReview() {
 		$("review-mergeback").hidden = !($("review-branch").textContent || "").startsWith("openpi/");
 		reviewFiles = lines.filter((l) => !l.startsWith("##")).map((l) => ({ st: l.slice(0, 2), path: l.slice(3) }));
 		const ckFiles = new Set(((await window.openpi.checkpointList().catch(() => [])) ?? []).map((c) => c.file));
-		updateReviewBadge();
-		if (!reviewFiles.length) {
+		// 会话改动清单（review:changes，vs 会话基线）——与 P72 面板同一数据源、同一行渲染
+		let rc = null;
+		try { rc = await window.openpi.reviewChanges(); } catch { rc = null; }
+		const rcFiles = rc?.ok ? (rc.files ?? []) : [];
+		if (!reviewFiles.length && !rcFiles.length) {
+			updateReviewBadge(rc);
 			body.innerHTML = '<div class="dim small" style="padding:12px">✓ 工作区干净，没有待审阅的变更。</div>';
 			return;
 		}
-		body.innerHTML = `<div class="git-sec-title">变更 (${reviewFiles.length}) — 点击展开 diff</div>` + reviewFiles.map((f, i) => {
+		const listHtml = rc?.ok
+			? `<div class="review-list-head">记录了 ${rcFiles.length} 项改动</div>`
+				+ `<div class="dim small" style="padding:0 2px 6px">基线：${rc.base === "HEAD" ? "HEAD（无会话快照）" : `会话快照 ${String(rc.base).slice(0, 7)}`}</div>`
+				+ (rcFiles.length ? rcFiles.map((f) => P72.reviewFileRowHtml(f)).join("") : '<div class="dim small" style="padding:4px 2px">本会话暂无改动</div>')
+			: '<div class="dim small" style="padding:4px 2px">当前会话无工作区（非 git 仓库不可用）</div>';
+		updateReviewBadge(rc);
+		// 旧 git status 逐文件明细（内联 diff / 还原 / 回滚，e2e-p26/p27 依赖 .review-file/.rv-discard/.ck-restore）折叠在清单下方
+		const gitList = !reviewFiles.length ? "" : `<details class="rv-gitlist"><summary class="dim small">文件状态明细（${reviewFiles.length}）— 点击展开内联 diff / 还原 / 回滚</summary>`
+			+ reviewFiles.map((f, i) => {
 			const untracked = f.st.trim().startsWith("?");
 			return `<div class="review-file" data-i="${i}">`
 				+ `<span class="git-st" style="color:${GIT_STATUS_COLOR[f.st.trim()[0]] ?? "#999"}">${f.st.trim() || "??"}</span>`
@@ -3216,7 +3413,10 @@ async function refreshReview() {
 				+ `<button class="rv-btn rv-open" title="用系统默认程序打开">打开</button>`
 				+ `<button class="rv-btn danger rv-discard" title="${untracked ? "删除新文件（移入回收站，可恢复）" : "还原此文件的改动"}">还原</button></span></div>`
 				+ `<pre class="git-pre" id="rv-diff-${i}" hidden></pre>`;
-		}).join("");
+		}).join("") + `</details>`;
+		body.innerHTML = listHtml + gitList;
+		// 会话改动清单行点击 → P72 复用的单文件 diff 弹窗
+		body.querySelectorAll(".rp-file").forEach((row, i) => row.addEventListener("click", () => openReviewDiff(rcFiles[i].file)));
 		body.querySelectorAll(".review-file").forEach((el) => {
 			const i = Number(el.dataset.i);
 			const f = reviewFiles[i];
@@ -4505,37 +4705,12 @@ async function refreshReviewPanel() {
 	}
 	reviewPanelEmpty.hidden = files.length > 0;
 	reviewPanelList.innerHTML = "";
-	for (const f of files) {
-		const row = document.createElement("div");
-		row.className = "rp-file";
-		row.title = f.file;
-		const st = String(f.status || "?").charAt(0).toUpperCase();
-		const badge = document.createElement("span");
-		// ?/R 等非常规状态统一落 u（未跟踪/其他）样式，MAD 各归本色
-		badge.className = `rp-badge rp-${"MAD".includes(st) ? st.toLowerCase() : "u"}`;
-		badge.textContent = st;
-		const name = document.createElement("span");
-		name.className = "rp-name mono";
-		name.textContent = f.file;
-		const stat = document.createElement("span");
-		stat.className = "rp-stat";
-		const parts = P72.diffStatParts(f.added, f.deleted, f.binary);
-		if (parts.text) {
-			stat.textContent = parts.text;
-			stat.classList.add("dim", "small");
-		} else {
-			for (const [cls, txt] of [["rp-add", parts.plus], ["rp-del", parts.minus]]) {
-				if (!txt) continue;
-				const s = document.createElement("span");
-				s.className = cls;
-				s.textContent = txt;
-				stat.appendChild(s);
-			}
-		}
-		row.append(badge, name, stat);
-		row.addEventListener("click", () => openReviewDiff(f.file));
-		reviewPanelList.appendChild(row);
-	}
+	// 行渲染抽到 P72.reviewFileRowHtml（审核 dock 清单共用同一份 HTML）
+	files.forEach((f, i) => {
+		reviewPanelList.insertAdjacentHTML("beforeend", P72.reviewFileRowHtml(f));
+		const row = reviewPanelList.lastElementChild;
+		row.addEventListener("click", () => openReviewDiff(files[i].file));
+	});
 }
 
 /** 单文件 diff 弹窗（复用 memory-mask 同款遮罩结构；等宽滚动区按行打红绿 class） */
@@ -4571,7 +4746,11 @@ async function openReviewDiff(file) {
 	}
 }
 
-btnReviewPanel.addEventListener("click", () => setReviewPanel(!reviewPanelOpen));
+// 入口归一：顶栏按钮改为跳转 dock 审核页（右栏 #review-panel 面板保留 DOM 但不再有入口，收起以防轮询残留）
+btnReviewPanel.addEventListener("click", () => {
+	setReviewPanel(false);
+	showDock("review");
+});
 $("review-panel-close").addEventListener("click", () => setReviewPanel(false));
 $("review-panel-refresh").addEventListener("click", () => refreshReviewPanel());
 $("review-diff-close").addEventListener("click", () => { $("review-diff-mask").hidden = true; });
@@ -4582,9 +4761,9 @@ window.addEventListener("keydown", (e) => {
 	if (e.key === "Escape" && !$("review-diff-mask").hidden) $("review-diff-mask").hidden = true;
 });
 
-/** P72b：切会话钩子（resumeSession/startSession/接力三处调用）——面板开着才刷新，收起时等下次打开再拉 */
+/** P72b：切会话钩子（resumeSession/startSession/接力三处调用）——面板/审核 dock 开着才刷新，收起时等下次打开再拉（基线随会话变） */
 function onSessionSwitched() {
-	if (reviewPanelOpen) refreshReviewPanel();
+	refreshReviewUI();
 }
 
 /* ================= P74：常规 / 信息 / 扩展 三个设置 tab ================= */

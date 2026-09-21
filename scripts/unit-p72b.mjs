@@ -105,6 +105,25 @@ ok("fmtTokCompact：k 缩写分档", () => {
 	assert.equal(P72.fmtTokCompact(-5), "0");
 });
 
+/* ⑤b 审阅清单行渲染（审核 dock 清单与 P72 面板共用的纯 HTML 构建） */
+ok("reviewFileRowHtml：徽标/增删/二进制", () => {
+	const html = P72.reviewFileRowHtml({ file: "src/app.js", status: "m", added: 12, deleted: 3, binary: false });
+	assert.ok(html.includes('class="rp-file"'), html); // 行结构（审核 dock 复用同一渲染）
+	assert.ok(html.includes("rp-badge rp-m") && html.includes(">M<"), html); // 小写状态归一为大写 M 徽标
+	assert.ok(html.includes('class="rp-add">+12') && html.includes('class="rp-del">-3'), html); // +N 绿 / -N 红
+	const bin = P72.reviewFileRowHtml({ file: "logo.png", status: "A", added: 0, deleted: 0, binary: true });
+	assert.ok(bin.includes("二进制") && !bin.includes("rp-add") && !bin.includes("rp-del"), bin); // 二进制不出现增删段
+});
+ok("reviewFileRowHtml：未跟踪徽标与 HTML 转义", () => {
+	const untracked = P72.reviewFileRowHtml({ file: "new.txt", status: "??" });
+	assert.ok(untracked.includes("rp-badge rp-u") && untracked.includes(">?<"), untracked); // 非常规状态落 u 徽标
+	const dirty = P72.reviewFileRowHtml({ file: 'a<b>&"x".js', status: "M", added: 1, deleted: 0 });
+	assert.ok(dirty.includes("a&lt;b&gt;&amp;&quot;x&quot;.js"), dirty); // 文件名转义（title 与正文）
+	const empty = P72.reviewFileRowHtml(null);
+	assert.ok(empty.includes("rp-u") && empty.includes(">?<"), empty); // 缺数据兜底不抛
+});
+
+
 ok("pickBaselineCommit：时刻容差与回退", () => {
 	const log = [
 		"abc1234 2000",

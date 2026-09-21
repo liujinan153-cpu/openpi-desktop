@@ -66,4 +66,59 @@ try {
 	process.exitCode = 1;
 }
 
+
+/* ---- P76 交付1：子智能体动作流水（src/main/p76-activity.mjs） ---- */
+import { workerActivityFromEvent, basename, clip } from "../src/main/p76-activity.mjs";
+
+ok("⑦ edit/write/apply_patch → 「编辑 <basename>」+ detail 全路径", () => {
+	const a = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t1", toolName: "edit", args: { path: "C:\\work\\src\\app.ts" } });
+	assert.equal(a.kind, "tool");
+	assert.equal(a.title, "编辑 app.ts");
+	assert.equal(a.detail, "C:\\work\\src\\app.ts");
+	const w = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t2", toolName: "write", args: { file_path: "/home/u/new-file.ts" } });
+	assert.equal(w.title, "编辑 new-file.ts"); // write 也统一「编辑」
+	const ap = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t3", toolName: "apply_patch", args: { path: "a/b.md/" } });
+	assert.equal(ap.title, "编辑 b.md"); // 尾部分隔符不吃进 basename
+});
+
+ok("⑧ bash/run_cmd → 「运行 <命令前60字>」+ detail 命令（换行压平）", () => {
+	const long = "npm run build && npm test && echo " + "x".repeat(200);
+	const a = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t4", toolName: "run_cmd", args: { command: long } });
+	assert.equal(a.title.startsWith("运行 npm run build && npm test && echo xxxxx"), true);
+	assert.ok(a.title.length <= 63, `title≤63, got ${a.title.length}`); // 「运行 」+ 60
+	assert.equal(a.detail.length, 120); // detail 截 ≤120
+	assert.equal(a.detail.includes("\n"), false); // 换行压平
+	const b = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t5", toolName: "bash", args: "git status" }); // args 为字符串
+	assert.equal(b.title, "运行 git status");
+});
+
+ok("⑨ read → 「读取 <basename>」+ offset 有则 detail 加 L<offset>~", () => {
+	const a = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t6", toolName: "read", args: { path: "src/main/app.mjs", offset: 120 } });
+	assert.equal(a.title, "读取 app.mjs");
+	assert.equal(a.detail, "src/main/app.mjs L120~");
+	const b = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t7", toolName: "read", args: { path: "only-base.mjs" } });
+	assert.equal(b.title, "读取 only-base.mjs");
+	assert.equal(b.detail, ""); // 无 offset 不造假
+});
+
+ok("⑩ grep/find/ls 搜索类 → 「搜索 <pattern 前40字>」；未知工具兜底工具名；非工具事件 null", () => {
+	const a = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t8", toolName: "grep", args: { pattern: "worker_activity" } });
+	assert.equal(a.title, "搜索 worker_activity");
+	const b = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t9", toolName: "find", args: { pattern: "p".repeat(80) } });
+	assert.equal(b.title, `搜索 ${"p".repeat(40)}`);
+	const c = workerActivityFromEvent({ type: "tool_execution_start", toolCallId: "t10", toolName: "webfetch", args: { url: "https://x" } });
+	assert.equal(c.title, "webfetch");
+	assert.equal(workerActivityFromEvent({ type: "message_end" }), null);
+	assert.equal(workerActivityFromEvent(null), null);
+	const e = workerActivityFromEvent({ type: "tool_execution_end", toolCallId: "t8", isError: true });
+	assert.deepEqual(e, { kind: "tool_end", toolCallId: "t8", ok: false });
+});
+
+ok("⑪ basename/clip 纯函数边界", () => {
+	assert.equal(basename("a\\b\\c.txt"), "c.txt");
+	assert.equal(basename("/x/y/"), "y"); // 尾分隔符剥掉后取末段
+	assert.equal(basename(null), "");
+	assert.equal(clip("  a\n b  ", 10), "a b");
+	assert.equal(clip(undefined, 5), "");
+});
 console.log(total ? `\n${total} 组断言执行完毕` : "");

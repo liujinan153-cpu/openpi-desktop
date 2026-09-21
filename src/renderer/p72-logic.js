@@ -97,7 +97,21 @@
 		return Math.min(130, Math.max(90, n));
 	}
 
-	globalThis.P72 = { SUBAGENT_STATUS, subagentStatus, subagentTerminal, subagentShouldAutoCollapse, subagentStats, stepsGroupLabel, turnBarLabel, fmtDur, fmtTokCompact, diffStatParts, pasteToastText, clampZoom };
+	/** 审阅清单文件行 HTML（P72 面板与审核 dock 共用渲染）：M/A/D/? 徽标 + 文件名（转义）+ 右侧 +N 绿/-N 红。
+	    纯字符串拼装无 DOM 依赖；点击行为（openReviewDiff）由调用方在真实节点上绑定。 */
+	function reviewFileRowHtml(f) {
+		const file = String(f?.file ?? "");
+		const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+		const st = String(f?.status || "?").charAt(0).toUpperCase();
+		// ?/R 等非常规状态统一落 u（未跟踪/其他）样式，MAD 各归本色
+		const badgeCls = "MAD".includes(st) ? st.toLowerCase() : "u";
+		const parts = diffStatParts(f?.added, f?.deleted, f?.binary);
+		const stat = parts.text
+			? `<span class="rp-stat dim small">${parts.text}</span>`
+			: `<span class="rp-stat">${parts.plus ? `<span class="rp-add">${parts.plus}</span>` : ""}${parts.minus ? `<span class="rp-del">${parts.minus}</span>` : ""}</span>`;
+		return `<div class="rp-file" title="${esc(file)}"><span class="rp-badge rp-${badgeCls}">${esc(st)}</span><span class="rp-name mono">${esc(file)}</span>${stat}</div>`;
+	}
 
+	globalThis.P72 = { SUBAGENT_STATUS, subagentStatus, subagentTerminal, subagentShouldAutoCollapse, subagentStats, stepsGroupLabel, turnBarLabel, fmtDur, fmtTokCompact, diffStatParts, pasteToastText, clampZoom, reviewFileRowHtml };
 
 })();

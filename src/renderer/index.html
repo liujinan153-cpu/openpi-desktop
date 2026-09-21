@@ -150,6 +150,7 @@
 					<button class="dock-tab" data-pane="preview" title="实时预览 (Ctrl+T)"><i data-lucide="globe"></i> 预览</button>
 					<button class="dock-tab" data-pane="terminal" title="工作区终端">⌨ 终端</button>
 					<button class="dock-tab" data-pane="files" title="工作区文件 (Ctrl+P)"><i data-lucide="folder"></i> 文件</button>
+					<button class="dock-tab" data-pane="subagents" title="子智能体实时动作（并行 worker）"><i data-lucide="bot"></i> 子智能体 <span id="subagents-cnt" class="dock-cnt" hidden></span></button>
 				<button class="dock-tab" data-pane="tasks" title="后台并行任务（多任务同时跑，互不阻塞）"><i data-lucide="zap"></i> 任务 <span id="tasks-cnt" class="dock-cnt" hidden></span></button>
 				<button class="dock-tab" data-pane="agents" title="AGENTS.md 指令文件（注入每次会话的系统提示词）"><i data-lucide="scroll-text"></i> 指令</button>
 					<div class="spacer"></div>
@@ -168,6 +169,17 @@
 						<input id="task-input" class="input" style="flex:1" placeholder="描述要后台并行跑的任务…" maxlength="2000" />
 						<button id="task-go" class="btn primary">▶ 后台运行</button>
 					</div>
+
+				<!-- P76 子智能体 pane：左 worker 列表 + 右动作流水（worker_activity 事件实时推送） -->
+				<div id="dock-pane-subagents" class="dock-pane" hidden>
+					<div class="review-head">
+						<span class="small dim">子智能体实时动作（并行 worker；每个工具调用一行，完成后补 ✓/✗ 与耗时）</span>
+					</div>
+					<div id="sw-body" class="review-body sw-body">
+						<div id="sw-list" class="sw-list"></div>
+						<div id="sw-feed" class="sw-feed"><div class="dim small sw-empty">暂无子智能体。在对话中派发子任务后，这里实时展示每个 worker 的动作流水。</div></div>
+					</div>
+				</div>
 				</div>
 
 				<div id="dock-pane-agents" class="dock-pane" hidden>
