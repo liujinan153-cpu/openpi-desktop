@@ -74,7 +74,7 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 5px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
-#app { display: flex; height: 100vh; }
+#app { display: flex; height: 100vh; position: relative; overflow: hidden; } /* P76：dock 拖拽式（两侧拖到限度即停），无横向滚动 */
 #main-col { flex: 1; display: flex; flex-direction: column; min-width: 0; background: radial-gradient(1200px 500px at 70% -10%, rgba(77, 141, 255, .06), transparent 60%), var(--bg); }
 .spacer { flex: 1; }
 .hidden { display: none !important; }
@@ -748,9 +748,18 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 }
 /* ================= P0：右侧 Dock（标签坞：审核 / 预览） ================= */
 #dock {
-	width: 480px; min-width: 360px; display: flex; flex-direction: column;
-	border-left: 1px solid var(--border); background: var(--bg2);
+	flex: none; width: var(--dock-w, 480px); min-width: var(--dock-w, 480px); display: flex; flex-direction: column;
+	border-left: 1px solid var(--border); background: var(--bg2); position: relative;
 }
+/* P76：dock 左缘拖拽手柄——拖宽/拖窄 dock，会话区有限度跟随（min-width 兜底，composer 内部布局不乱） */
+#dock-resize {
+	position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 5;
+}
+#dock-resize:hover, #dock-resize.on { background: var(--accent); opacity: .35; }
+body.dock-resizing { cursor: col-resize; user-select: none; }
+body.dock-resizing #dock-resize { background: var(--accent); opacity: .5; }
+#main-col { min-width: 560px; } /* 会话区缩短的下限：composer/状态栏布局完整的最小宽度 */
+#app { overflow: hidden; } /* 不出横向滚动；两侧拖到限度即停 */
 #dock[hidden] { display: none !important; }
 #dock-tabs {
 	display: flex; align-items: center; gap: 1px; padding: 6px 6px;
