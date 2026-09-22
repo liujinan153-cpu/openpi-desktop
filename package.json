@@ -1,6 +1,6 @@
 {
   "name": "openpi-desktop",
-  "version": "0.65.1",
+  "version": "0.65.2",
   "private": true,
   "type": "module",
   "description": "OpenPi Desktop - desktop agent harness powered by pi coding agent SDK",
