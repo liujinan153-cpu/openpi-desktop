@@ -3308,18 +3308,18 @@ document.addEventListener("drop", (e) => {
 /* ================= P0：右侧 Dock（标签坞：审核/预览）+ Codex 式审核面板 ================= */
 const GIT_STATUS_COLOR = { M: "var(--warn, #e5c07b)", A: "#98c379", "?": "#61afef", D: "#e06c75", R: "#c678dd" };
 const dock = $("dock");
-// P76：dock 宽度拖拽——左缘手柄，拖宽/拖窄 dock（320–720px），持久化 localStorage；会话区有限度跟随
+// P76：dock 宽度拖拽——左缘手柄，拖宽/拖窄 dock（380–720px，下限抬高保标签不挤），持久化 localStorage；会话区有限度跟随
 (() => {
 	const handle = $("dock-resize");
 	if (!handle) return;
 	const saved = Number(localStorage.getItem("op-dock-w"));
-	if (saved >= 320 && saved <= 720) document.documentElement.style.setProperty("--dock-w", saved + "px");
+	if (saved >= 380 && saved <= 720) document.documentElement.style.setProperty("--dock-w", saved + "px");
 	handle.addEventListener("mousedown", (e) => {
 		e.preventDefault();
 		handle.classList.add("on");
 		document.body.classList.add("dock-resizing");
 		const onMove = (ev) => {
-			const w = Math.min(720, Math.max(320, window.innerWidth - ev.clientX));
+			const w = Math.min(720, Math.max(380, window.innerWidth - ev.clientX));
 			document.documentElement.style.setProperty("--dock-w", w + "px");
 		};
 		const onUp = () => {
