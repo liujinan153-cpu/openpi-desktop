@@ -165,6 +165,18 @@
 					<div class="spacer"></div>
 					<button id="dock-close" class="icon-btn" title="关闭面板"><i data-lucide="x"></i></button>
 				</div>
+				<!-- UI v3.1：面板落地页（对标 Pi-Desktop 打开面板）——无激活面板时展示，点选进入 -->
+				<div id="dock-picker" hidden>
+					<div class="dp-title">打开面板</div>
+					<div class="dp-sub">选择要在侧边面板中打开的面板。</div>
+					<button class="dp-item" data-pick="review"><i data-lucide="search"></i>审核<span class="dp-kbd">Ctrl+Shift+G</span></button>
+					<button class="dp-item" data-pick="preview"><i data-lucide="globe"></i>预览<span class="dp-kbd">Ctrl+T</span></button>
+					<button class="dp-item" data-pick="terminal"><i data-lucide="square-terminal"></i>终端</button>
+					<button class="dp-item" data-pick="files"><i data-lucide="folder"></i>文件<span class="dp-kbd">Ctrl+P</span></button>
+					<button class="dp-item" data-pick="subagents"><i data-lucide="bot"></i>子智能体</button>
+					<button class="dp-item" data-pick="tasks"><i data-lucide="zap"></i>任务</button>
+					<button class="dp-item" data-pick="agents"><i data-lucide="scroll-text"></i>指令</button>
+				</div>
 
 				<!-- 指令 pane：AGENTS.md / CLAUDE.md（pi 内核同款发现规则：全局 + 工作区向上查找） -->
 				<div id="dock-pane-tasks" class="dock-pane" hidden>

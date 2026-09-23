@@ -963,7 +963,7 @@ function setStreaming(on) {
 	btnSend.classList.toggle("stop", on);
 	input.placeholder = on
 		? "Agent 运行中… Enter = 插话 (steer)"
-		: "向 Agent 下达任务…  (Enter 发送 / Shift+Enter 换行)";
+		: "向 Agent 下达任务…"; /* UI v3.1 减法：快捷键说明挪悬停 */
 	on ? showLiveBar() : hideLiveBar();
 }
 
@@ -3342,6 +3342,9 @@ function showDock(tab) {
 	dockTab = tab;
 	dockLastTab = tab;
 	dock.hidden = false;
+	dock.classList.remove("picker-mode"); /* UI v3.1：进入面板=标签条模式 */
+	const dockPk = document.getElementById("dock-picker");
+	if (dockPk) dockPk.hidden = true;
 	for (const [k, el] of Object.entries(dockPanes)) el.hidden = k !== tab;
 	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.toggle("on", b.dataset.pane === tab));
 	if (tab === "review") refreshReview();
@@ -3362,13 +3365,25 @@ function toggleDock(tab) {
 function closeDock() {
 	dock.hidden = true;
 	dockTab = null;
+	dock.classList.remove("picker-mode"); /* UI v3.1 */
 	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.remove("on"));
 }
 document.querySelectorAll(".dock-tab").forEach((b) => b.addEventListener("click", () => showDock(b.dataset.pane)));
+document.querySelectorAll("#dock-picker .dp-item").forEach((b) => b.addEventListener("click", () => showDock(b.dataset.pick))); /* UI v3.1：落地页点选 */
 $("dock-close").addEventListener("click", closeDock);
 // 顶栏已精简：审核入口 = Dock 标签 / 分支 chip / Ctrl+Shift+G
 /* 右上角：显示/隐藏侧边面板（对标 Codex Ctrl+Alt+B） */
-$("btn-dock").addEventListener("click", () => (dock.hidden ? showDock(dockLastTab) : closeDock()));
+/* UI v3.1：面板按钮打开「落地页」（堆叠列表+快捷键），点选面板进入；进入后切换走顶部标签条，二者互斥 */
+function showPicker() {
+	dock.hidden = false;
+	dockTab = null;
+	for (const [, el] of Object.entries(dockPanes)) el.hidden = true;
+	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.remove("on"));
+	dock.classList.add("picker-mode");
+	const pk = document.getElementById("dock-picker");
+	if (pk) pk.hidden = false;
+}
+$("btn-dock").addEventListener("click", () => (dock.hidden ? showPicker() : closeDock())); /* UI v3.1：打开=落地页 */
 
 /* ---- 审核徽标：Agent 改文件后自动刷新（角标计数 / 面板内容） ---- */
 let reviewTimer = null;
