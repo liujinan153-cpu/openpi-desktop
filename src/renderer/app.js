@@ -3336,6 +3336,7 @@ const dock = $("dock");
 })();
 const dockPanes = { review: $("dock-pane-review"), preview: $("dock-pane-preview"), terminal: $("dock-pane-terminal"), files: $("dock-pane-files"), tasks: $("dock-pane-tasks"), subagents: $("dock-pane-subagents") };
 let dockTab = null; // 当前打开的 pane：review | preview | terminal | files | null
+const dockOpenPanes = new Set(); // UI v3.1：标签条多开——已打开面板集合（浏览器式标签）
 let dockLastTab = "review"; // 关闭后再打开时恢复的标签
 
 function showDock(tab) {
@@ -3345,6 +3346,8 @@ function showDock(tab) {
 	dock.classList.remove("picker-mode"); /* UI v3.1：进入面板=标签条模式 */
 	const dockPk = document.getElementById("dock-picker");
 	if (dockPk) dockPk.hidden = true;
+	dockOpenPanes.add(tab);
+	document.querySelectorAll(".dock-tab").forEach((b2) => (b2.hidden = !dockOpenPanes.has(b2.dataset.pane)));
 	for (const [k, el] of Object.entries(dockPanes)) el.hidden = k !== tab;
 	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.toggle("on", b.dataset.pane === tab));
 	if (tab === "review") refreshReview();
@@ -3369,7 +3372,23 @@ function closeDock() {
 	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.remove("on"));
 }
 document.querySelectorAll(".dock-tab").forEach((b) => b.addEventListener("click", () => showDock(b.dataset.pane)));
+/* UI v3.1：标签 ✕ 关闭单个面板（捕获阶段，先于标签切页）；最后一个关闭则回落地页 */
+$("dock-tabs").addEventListener("click", (e) => {
+	const x = e.target.closest(".tb-x");
+	if (!x) return;
+	e.preventDefault(); e.stopPropagation();
+	const pane = x.closest(".dock-tab")?.dataset.pane;
+	if (!pane) return;
+	dockOpenPanes.delete(pane);
+	const btn = document.querySelector(`.dock-tab[data-pane="${pane}"]`);
+	if (btn) btn.hidden = true;
+	if (dockTab === pane) {
+		const next = [...dockOpenPanes][0];
+		next ? showDock(next) : showPicker();
+	}
+}, true);
 document.querySelectorAll("#dock-picker .dp-item").forEach((b) => b.addEventListener("click", () => showDock(b.dataset.pick))); /* UI v3.1：落地页点选 */
+$("dock-add").addEventListener("click", showPicker); /* UI v3.1：＋ 回到落地页加面板 */
 $("dock-close").addEventListener("click", closeDock);
 // 顶栏已精简：审核入口 = Dock 标签 / 分支 chip / Ctrl+Shift+G
 /* 右上角：显示/隐藏侧边面板（对标 Codex Ctrl+Alt+B） */
@@ -3377,6 +3396,7 @@ $("dock-close").addEventListener("click", closeDock);
 function showPicker() {
 	dock.hidden = false;
 	dockTab = null;
+	document.querySelectorAll(".dock-tab").forEach((b) => (b.hidden = !dockOpenPanes.has(b.dataset.pane))); /* 已开面板保留 */
 	for (const [, el] of Object.entries(dockPanes)) el.hidden = true;
 	document.querySelectorAll(".dock-tab").forEach((b) => b.classList.remove("on"));
 	dock.classList.add("picker-mode");

@@ -155,13 +155,14 @@
 				<div id="dock" hidden>
 					<div id="dock-resize" title="拖拽调整宽度"></div>
 				<div id="dock-tabs">
-					<button class="dock-tab" data-pane="review" title="工作区改动审阅 (Ctrl+Shift+G)"><i data-lucide="search"></i> 审核 <span id="review-cnt" class="dock-cnt" hidden></span></button>
-					<button class="dock-tab" data-pane="preview" title="实时预览 (Ctrl+T)"><i data-lucide="globe"></i> 预览</button>
-					<button class="dock-tab" data-pane="terminal" title="工作区终端">⌨ 终端</button>
-					<button class="dock-tab" data-pane="files" title="工作区文件 (Ctrl+P)"><i data-lucide="folder"></i> 文件</button>
-					<button class="dock-tab" data-pane="subagents" title="子智能体实时动作（并行 worker）"><i data-lucide="bot"></i> 子智能体 <span id="subagents-cnt" class="dock-cnt" hidden></span></button>
-				<button class="dock-tab" data-pane="tasks" title="后台并行任务（多任务同时跑，互不阻塞）"><i data-lucide="zap"></i> 任务 <span id="tasks-cnt" class="dock-cnt" hidden></span></button>
-				<button class="dock-tab" data-pane="agents" title="AGENTS.md 指令文件（注入每次会话的系统提示词）"><i data-lucide="scroll-text"></i> 指令</button>
+					<button class="dock-tab" data-pane="review" title="工作区改动审阅 (Ctrl+Shift+G)"><i data-lucide="search"></i> 审核 <span id="review-cnt" class="dock-cnt" hidden></span><span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+					<button class="dock-tab" data-pane="preview" title="实时预览 (Ctrl+T)"><i data-lucide="globe"></i> 预览<span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+					<button class="dock-tab" data-pane="terminal" title="工作区终端"><i data-lucide="square-terminal"></i> 终端<span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+					<button class="dock-tab" data-pane="files" title="工作区文件 (Ctrl+P)"><i data-lucide="folder"></i> 文件<span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+					<button class="dock-tab" data-pane="subagents" title="子智能体实时动作（并行 worker）"><i data-lucide="bot"></i> 子智能体 <span id="subagents-cnt" class="dock-cnt" hidden></span><span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+				<button class="dock-tab" data-pane="tasks" title="后台并行任务（多任务同时跑，互不阻塞）"><i data-lucide="zap"></i> 任务 <span id="tasks-cnt" class="dock-cnt" hidden></span><span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+				<button class="dock-tab" data-pane="agents" title="AGENTS.md 指令文件（注入每次会话的系统提示词）"><i data-lucide="scroll-text"></i> 指令<span class="tb-x" title="关闭"><i data-lucide="x"></i></span></button>
+					<button id="dock-add" class="icon-btn dock-add" title="添加面板"><i data-lucide="plus"></i></button>
 					<div class="spacer"></div>
 					<button id="dock-close" class="icon-btn" title="关闭面板"><i data-lucide="x"></i></button>
 				</div>
@@ -169,10 +170,10 @@
 				<div id="dock-picker" hidden>
 					<div class="dp-title">打开面板</div>
 					<div class="dp-sub">选择要在侧边面板中打开的面板。</div>
-					<button class="dp-item" data-pick="review"><i data-lucide="search"></i>审核<span class="dp-kbd">Ctrl+Shift+G</span></button>
-					<button class="dp-item" data-pick="preview"><i data-lucide="globe"></i>预览<span class="dp-kbd">Ctrl+T</span></button>
+					<button class="dp-item" data-pick="review"><i data-lucide="search"></i>审核</button>
+					<button class="dp-item" data-pick="preview"><i data-lucide="globe"></i>预览</button>
 					<button class="dp-item" data-pick="terminal"><i data-lucide="square-terminal"></i>终端</button>
-					<button class="dp-item" data-pick="files"><i data-lucide="folder"></i>文件<span class="dp-kbd">Ctrl+P</span></button>
+					<button class="dp-item" data-pick="files"><i data-lucide="folder"></i>文件</button>
 					<button class="dp-item" data-pick="subagents"><i data-lucide="bot"></i>子智能体</button>
 					<button class="dp-item" data-pick="tasks"><i data-lucide="zap"></i>任务</button>
 					<button class="dp-item" data-pick="agents"><i data-lucide="scroll-text"></i>指令</button>

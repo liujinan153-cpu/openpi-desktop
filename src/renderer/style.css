@@ -63,7 +63,16 @@ html[data-theme="light"] .ic-dark { display: none; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 	outline: none; box-shadow: var(--focus-ring);
 }
-#statusbar, .time, .st, .dock-cnt { font-variant-numeric: tabular-nums; }
+#statusbar, .time, .st, .dock-tab .tb-x {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 15px; height: 15px; margin-left: 1px; border-radius: 4px;
+	color: var(--dim); opacity: 0; flex: none;
+	transition: opacity var(--t-fast), background var(--t-fast);
+} /* UI v3.1：标签 ✕ 悬停/激活时可见 */
+.dock-tab .tb-x svg.lucide { width: 10px; height: 10px; }
+.dock-tab:hover .tb-x, .dock-tab.on .tb-x { opacity: 1; }
+.dock-tab .tb-x:hover { background: var(--hover); color: var(--text); }
+.dock-cnt { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
@@ -808,10 +817,12 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 #app { overflow: hidden; } /* 不出横向滚动；两侧拖到限度即停 */
 #dock[hidden] { display: none !important; }
 #dock-tabs {
-	display: flex; align-items: center; gap: 0; padding: 5px 5px;
+	display: flex; align-items: center; gap: 6px; padding: 8px 10px;
 	border-bottom: 1px solid var(--border); background: var(--topbar-grad);
 	overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: none; /* P76 修复：tab 多时不换行不竖排，横向滚动 */
 }
+.dock-add { border: 1px dashed var(--line2); border-radius: 10px; }
+.dock-add:hover { border-style: solid; border-color: var(--border2); color: var(--text); }
 .dock-tab {
 	border: none; background: transparent; color: var(--dim);
 	font: 600 11.5px var(--sans); padding: 5px 6px; border-radius: var(--r-xs);
@@ -820,7 +831,8 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 }
 .dock-tab svg.lucide { width: 13px; height: 13px; }
 .dock-tab:hover { color: var(--text); background: var(--hover); }
-.dock-tab.on { color: var(--text); background: transparent; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--text) 45%, transparent); } /* UI v3.1：激活 = 白色下划线 */
+.dock-tab.on { color: var(--text); background: var(--bg2); border-color: var(--border2); box-shadow: var(--shadow-sm); }
+#dock-tabs .dock-tab:not(.on) { display: none; } /* UI v3.1 减法：标签条只展示当前面板，＋ 添加/切换 */ /* UI v3.1：活动标签=浮起片 */ /* UI v3.1：激活 = 白色下划线 */
 .dock-cnt {
 	background: var(--bg4); color: var(--dim); font-size: 9.5px; font-weight: 600;
 	border-radius: 999px; padding: 0 4px; line-height: 13px; min-width: 13px; text-align: center;
@@ -1574,5 +1586,3 @@ pre:hover .code-copy { opacity: 1; }
 .dp-item:hover { border-color: var(--border2); background: var(--hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .dp-item:hover svg.lucide { color: var(--text); transform: scale(1.08); }
 .dp-item:active { transform: translateY(0) scale(.99); }
-.dp-item .dp-kbd { margin-left: auto; flex: none; font: 10px var(--mono); color: var(--faint); background: var(--hover); border-radius: 5px; padding: 2px 6px; }
-.dp-item:hover .dp-kbd { color: var(--dim); }
