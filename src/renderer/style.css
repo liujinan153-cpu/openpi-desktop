@@ -354,8 +354,7 @@ html:not([data-theme="light"]) .msg .body :is(h1, h2, h3, h4) { color: #ffffff; 
 	transition: border-color var(--t-fast), background var(--t-fast), transform var(--spring), box-shadow var(--spring); text-align: left; min-height: 0; display: flex; flex-direction: column; gap: 6px;
 }
 .w-task:hover { border-color: var(--border2); background: var(--hover); transform: translateY(-3px); box-shadow: var(--shadow-lift); } /* UI v3.1：弹性浮起 */
-.w-task .ic { transition: transform var(--spring); }
-.w-task:hover .ic { transform: scale(1.12) rotate(-4deg); }
+
 .w-task .ic { font-size: 20px; color: var(--dim); }
 .w-task .ic svg.lucide { width: 18px; height: 18px; vertical-align: -4px; }
 .w-task b { font-size: 13px; font-weight: 500; }
