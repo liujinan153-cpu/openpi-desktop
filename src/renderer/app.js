@@ -1058,8 +1058,8 @@ function renderSessionList() {
 		el.className = "s-item" + (nested ? " nested" : "") + (activeId === s.id ? " active" : "");
 		const isPinned = !!state.meta?.[s.id]?.pinned;
 		const cwdName = s.cwd ? s.cwd.split(/[\\/]/).filter(Boolean).pop() : "?";
-		el.innerHTML = `<div class="t">${isPinned ? '<span class="pin"><i data-lucide="pin"></i></span>' : ""}<span class="s-ic"><i data-lucide="message-circle"></i></span><span class="pv" title="${escapeHtml(sTitle(s))}">${escapeHtml(sTitle(s))}</span><span class="time">${timeAgo(s.mtime)}</span></div>`
-			+ (nested ? "" : `<div class="s"><span class="cwd" title="${escapeHtml(s.cwd)}">📁 ${escapeHtml(cwdName)}</span></div>`);
+		el.innerHTML = `<div class="t">${isPinned ? '<span class="pin"><i data-lucide="pin"></i></span>' : ""}<span class="pv" title="${escapeHtml(sTitle(s))}">${escapeHtml(sTitle(s))}</span><span class="time">${timeAgo(s.mtime)}</span></div>`
+			+ (nested ? "" : `<div class="s"><span class="cwd" title="${escapeHtml(s.cwd)}">${escapeHtml(cwdName)}</span></div>`);
 		el.addEventListener("click", () => resumeSession(s.file));
 		el.addEventListener("contextmenu", (e) => {
 			e.preventDefault();
@@ -1296,7 +1296,7 @@ async function resumeSession(file) {
 		}
 		workspaceLabel.textContent = state.session.workspace || "不在项目中工作";
 		syncWelcomeTitle(); // UI v3.1：欢迎页标题随工作区
-		setStatus(`已恢复 · ${info.model?.id ?? "无模型"}`);
+		setStatus("已恢复");
 		// 回放历史
 		const shown = await replayHistory();
 		if (shown) addSysLine(`— 已恢复 ${shown} 条历史消息 —`);
@@ -1447,7 +1447,7 @@ function handleEvent(e) {
 
 		case "agent_recovered":
 			setStreaming(false);
-			setStatus(`已恢复 · ${state.session?.model?.id ?? ""}`);
+			setStatus("已恢复");
 			if (state.lastPrompt) {
 				const c = newAssistantBubble();
 				appendText("Agent 进程已恢复；刚才中断的请求没有自动重放，以避免重复执行工具。\n\n");
@@ -1529,7 +1529,7 @@ function handleEvent(e) {
 
 		case "agent_settled":
 			setStreaming(false);
-			setStatus(`就绪 · ${state.session?.model?.id ?? ""}`);
+			setStatus("就绪");
 			renderTurnCard(); // P39：回合结束 → 本轮改动卡（编辑过的文件汇总 + 回滚）
 			// P35：计划模式下 AI 说完话 → 亮出批准条
 			if (state.lastMode === "plan") { state.planSpoke = true; renderPlanBar(); }
@@ -1868,7 +1868,7 @@ async function startSession(workspace) {
 		syncWelcomeTitle(); // UI v3.1：欢迎页标题随工作区
 		if (typeof onSessionSwitched === "function") onSessionSwitched(); // P72b：切会话刷新改动审阅面板（面板开着才拉）
 		workspaceLabel.title = state.session.workspace || "普通聊天，不绑定项目目录";
-		setStatus(`就绪 · ${info.model?.id ?? "无模型"}`);
+		setStatus("就绪");
 		if (isTask && info.sessionId) {
 			// 打任务标记：会话列表据此分类（项目/任务互不重合）
 			await window.openpi.sessionsMetaSet(info.sessionId, { task: true }).catch(() => {});
@@ -1913,7 +1913,7 @@ $("btn-import")?.addEventListener("click", async () => {
 async function newSession() {
 	resetChat();
 	await startSession(state.session?.workspace);
-	addSysLine("— 新会话已创建 —");
+	// UI v3.1 减法 B：空会话不再打「已创建」系统行（hero 即内容）
 }
 btnWorkspace.addEventListener("click", () => toggleWsPicker());
 
@@ -2814,7 +2814,7 @@ async function doHandoff(pct) {
 		);
 	} catch (e) {
 		addSysLine(`上下文接力失败: ${e.message ?? e}`, true);
-		setStatus(`就绪 · ${state.session?.model?.id ?? ""}`);
+		setStatus("就绪");
 	} finally {
 		state.handoffBusy = false;
 	}
@@ -2940,7 +2940,11 @@ function handleM2Event(e) {
 	} else if (e.type === "ui_notify") {
 		// P76 修复：qmd 记忆扩展未安装的原始安装指引很长且裸奔在欢迎屏——人话化为一行
 		if (/^memory_search requires qmd/.test(e.message ?? "")) {
-			addSysLine("ℹ 跨会话记忆搜索未启用（可选依赖 qmd 未安装）；需要时运行 npm install -g @tobilu/qmd");
+			// UI v3.1 减法 B：环境提示只打一次，不再每次空会话都出现
+			if (!localStorage.getItem("op-qmd-hint")) {
+				addSysLine("ℹ 跨会话记忆搜索未启用（可选依赖 qmd 未安装）；需要时运行 npm install -g @tobilu/qmd");
+				localStorage.setItem("op-qmd-hint", "1");
+			}
 			return;
 		}
 		addSysLine(`${e.level === "error" ? "✗" : e.level === "warning" ? "⚠" : "ℹ"} ${e.message}`, e.level === "error");
