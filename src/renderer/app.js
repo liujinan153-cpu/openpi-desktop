@@ -1069,9 +1069,18 @@ function renderSessionList() {
 	};
 	if (!q && state.sideTab === "projects") {
 		// 「项目」tab：只显示绑定本地工作区的会话（与任务互不重合）
+		// UI v3.1：置顶分区置顶展示（跨项目），置顶项不再重复出现在各项目组内
+		const projPins = list.filter((s) => s.cwd && !isTaskS(s) && state.meta?.[s.id]?.pinned);
+		if (projPins.length) {
+			const gt = document.createElement("div");
+			gt.className = "group-title";
+			gt.textContent = "置顶";
+			sessionList.appendChild(gt);
+			for (const s of projPins) sessionList.appendChild(mkItem(s, false));
+		}
 		const groups = new Map();
 		for (const s of pinned(list)) {
-			if (!s.cwd || isTaskS(s)) continue;
+			if (!s.cwd || isTaskS(s) || state.meta?.[s.id]?.pinned) continue;
 			if (!groups.has(s.cwd)) groups.set(s.cwd, []);
 			groups.get(s.cwd).push(s);
 		}
@@ -1096,7 +1105,7 @@ function renderSessionList() {
 			sessionList.appendChild(head);
 			if (!collapsed) for (const s of items.slice(0, 8)) sessionList.appendChild(mkItem(s, true));
 		}
-			if (!groups.size) {
+			if (!groups.size && !projPins.length) {
 				sessionList.innerHTML = `<div class="side-empty">暂无项目会话；点输入框左下角「文件夹」选工作区，或「不在项目中工作」发起普通聊天</div>`;
 			}
 		} else {
@@ -1286,6 +1295,7 @@ async function resumeSession(file) {
 			if ([...modelSelect.options].some((o) => o.value === v)) modelSelect.value = v;
 		}
 		workspaceLabel.textContent = state.session.workspace || "不在项目中工作";
+		syncWelcomeTitle(); // UI v3.1：欢迎页标题随工作区
 		setStatus(`已恢复 · ${info.model?.id ?? "无模型"}`);
 		// 回放历史
 		const shown = await replayHistory();
@@ -1741,7 +1751,16 @@ function restoreWelcome() {
 	const tpl = document.getElementById("welcome-tpl");
 	if (!tpl) return;
 	chat.appendChild(tpl.content.cloneNode(true));
+	syncWelcomeTitle(); // UI v3.1：标题带工作区名（Codex 式）
 	refreshIcons(); // P46：欢迎卡图标
+}
+/* UI v3.1：欢迎页标题随工作区变化（无工作区 = 通用文案） */
+function syncWelcomeTitle() {
+	const h1 = document.querySelector("#welcome h1");
+	if (!h1) return;
+	const ws = (workspaceLabel.textContent || "").trim();
+	const generic = !ws || ws === "不在项目中工作" || ws === "选择文件夹";
+	h1.textContent = generic ? "今天想做点什么？" : `想在 ${ws} 中做点什么？`;
 }
 chat?.addEventListener?.("click", (e) => {
 	const btn = e.target.closest(".w-task");
@@ -1846,6 +1865,7 @@ async function startSession(workspace) {
 		const info = await window.openpi.start({ workspace, provider, id, thinkingLevel: thinkingSelect.value });
 		state.session = { ...info, workspace: isTask ? null : (info.workspace ?? workspace), task: isTask }; // 主进程可能回退到默认工作区
 		workspaceLabel.textContent = state.session.workspace || "不在项目中工作";
+		syncWelcomeTitle(); // UI v3.1：欢迎页标题随工作区
 		if (typeof onSessionSwitched === "function") onSessionSwitched(); // P72b：切会话刷新改动审阅面板（面板开着才拉）
 		workspaceLabel.title = state.session.workspace || "普通聊天，不绑定项目目录";
 		setStatus(`就绪 · ${info.model?.id ?? "无模型"}`);
@@ -2418,6 +2438,7 @@ $("btn-settings").addEventListener("click", openSettings);
 /* P76：关设置弹窗时连带关掉模型展示管理弹窗（两处关闭路径共用） */
 function closeModelPinsModal() { $("model-pins-mask")?.classList.add("hidden"); }
 $("btn-settings-close").addEventListener("click", () => { settingsMask.classList.add("hidden"); closeModelPinsModal(); });
+$("btn-settings-back")?.addEventListener("click", () => { settingsMask.classList.add("hidden"); closeModelPinsModal(); }); // UI v3.1：全页版左上返回
 settingsMask.addEventListener("click", (e) => { if (e.target === settingsMask) { settingsMask.classList.add("hidden"); closeModelPinsModal(); } });
 
 document.querySelectorAll(".tab").forEach((t) =>
@@ -2724,6 +2745,7 @@ function updateCtxBar(usage) {
 		ctxText.textContent = win ? `上下文 0 / ${fmtWin(win)}` : "";
 		ctxWrap.title = win ? `上下文窗口 ${fmtWin(win)} · 压缩触发线 ${Math.round((1 - 16384 / win) * 100)}% · 接力线 ${HANDOFF_PCT * 100}%` : "";
 		state.ctx = null;
+		syncSideUsage(); // UI v3.1：侧栏用量 pill
 		return;
 	}
 	const pct = Math.min(100, (used / win) * 100);
@@ -2732,6 +2754,17 @@ function updateCtxBar(usage) {
 	ctxText.textContent = `上下文 ${(used / 1000).toFixed(1)}k / ${fmtWin(win)} · ${pct.toFixed(0)}%`;
 	ctxWrap.title = `上下文: ${(used / 1000).toFixed(1)}k / ${fmtWin(win)} (${pct.toFixed(1)}%) · 压缩触发线 ${Math.round((1 - 16384 / win) * 100)}% · 接力线 ${HANDOFF_PCT * 100}%`;
 	state.ctx = { pct, used, win };
+	syncSideUsage(); // UI v3.1：侧栏用量 pill
+}
+
+/* UI v3.1：侧栏底部用量 pill = 本会话上下文占用%（数据源同 statusbar 上下文仪表） */
+function syncSideUsage() {
+	const el = document.getElementById("side-usage");
+	if (!el) return;
+	const pct = state.ctx?.pct;
+	el.hidden = pct == null;
+	el.textContent = pct == null ? "" : `${Math.round(pct)}%`;
+	el.title = pct == null ? "" : `本会话上下文占用 ${pct.toFixed(1)}%`;
 }
 
 /* ---- P24：上下文接力（占用过阈值 → 压缩摘要 → 新会话继续） ---- */
@@ -2764,6 +2797,7 @@ async function doHandoff(pct) {
 		state.usageTotal = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 		renderUsage();
 		workspaceLabel.textContent = state.session.workspace || "不在项目中工作";
+		syncWelcomeTitle(); // UI v3.1：欢迎页标题随工作区
 		const nTitle = `${base} · 接力${(mN ? Number(mN[1]) : 0) + 1}`;
 		if (r.sessionId) {
 			const patch = { title: nTitle, ...(state.session.task ? { task: true } : {}) };
