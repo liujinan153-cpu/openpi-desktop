@@ -115,7 +115,7 @@ body {
 .group-title {
 	display: flex; align-items: center; gap: 6px;
 	font-size: 11px; color: var(--dim); font-weight: 700; letter-spacing: 1px;
-	padding: 12px 6px 4px;
+	padding: 16px 6px 6px;
 }
 .group-title::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .proj-head {
@@ -341,11 +341,11 @@ html:not([data-theme="light"]) .msg .body :is(h1, h2, h3, h4) { color: #ffffff; 
 #welcome h1 { font-size: 26px; font-weight: 600; letter-spacing: -.3px; margin-bottom: 8px; } /* UI v3.1：标题升 26px 档 */
 #welcome .sub { color: var(--dim); font-size: 13px; margin-bottom: 0; }
 #welcome .sub b { color: var(--text); font-weight: 600; }
-.w-tasks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 32px; }
+.w-tasks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 36px; }
 .w-task {
 	background: transparent; border: 1px solid var(--border); border-radius: var(--r-md);
-	padding: 14px 16px; cursor: pointer; color: var(--text); font-family: inherit;
-	transition: border-color var(--t-fast), background var(--t-fast); text-align: left; min-height: 0; display: flex; flex-direction: column; gap: 4px;
+	padding: 16px 18px; cursor: pointer; color: var(--text); font-family: inherit;
+	transition: border-color var(--t-fast), background var(--t-fast); text-align: left; min-height: 0; display: flex; flex-direction: column; gap: 6px;
 }
 .w-task:hover { border-color: var(--border2); background: var(--hover); transform: none; }
 .w-task .ic { font-size: 20px; color: var(--dim); }
@@ -706,24 +706,24 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 
 /* ================= zcode 层级感（第二版）：会话=纯文本行，项目=一等公民 ================= */
 /* 会话项去边框去底色，单行省略 */
-.s-item { border: none !important; padding: 8px 10px; }
+.s-item { border: none !important; padding: 10px 12px; }
 .s-item .t {
-	display: flex; align-items: center; gap: 7px; font-size: 12.5px; line-height: 1.5;
+	display: flex; align-items: center; gap: 7px; font-size: 13px; line-height: 1.55;
 	-webkit-line-clamp: unset; -webkit-box-orient: unset;
 }
 .s-item .t .pv { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.s-item .t .time { flex: none; font-size: 10.5px; color: var(--dim); opacity: .7; }
+.s-item .t .time { flex: none; font-size: 10px; color: var(--faint); opacity: .8; }
 .s-item .s { padding-left: 23px; margin-top: 0; }
 /* 活动项：轻量高亮（左侧短竖条 + 淡底 + 标题着色），不再是渐变大卡片 */
 .s-item.active { background: var(--active); }
 .s-item.active::before { width: 2px; top: 25%; bottom: 25%; content: none; }
 .s-item.active .pv { color: var(--text); font-weight: 600; } /* UI v3.1：活动项去蓝，字重升半级 */
 /* 项目头：折叠箭头 + 更强字重，与纯文本会话行拉开对比 */
-.proj-head { padding: 6px 10px; font-size: 13px; font-weight: 650; } /* P71：13.5→13 归档 */
+.proj-head { padding: 8px 10px; margin: 10px 6px 2px; font-size: 13px; font-weight: 650; } /* P71：13.5→13 归档 */
 .proj-head .p-chev { flex: none; width: 12px; font-size: 10px; color: var(--dim); transition: transform .15s; }
 .proj-head.folded .p-chev { transform: rotate(0); }
 /* 嵌套会话：深缩进 + 竖线引导，弱化 */
-.s-item.nested { margin: 0 6px 0 34px; padding: 6px 8px; font-size: 12px; }
+.s-item.nested { margin: 0 6px 0 34px; padding: 9px 8px; font-size: 12px; }
 .s-item.nested::before { left: 20px; }
 .s-item.nested .t .pv { color: var(--dim); }
 .s-item.nested.active .pv { color: var(--accent); }
