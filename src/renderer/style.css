@@ -68,7 +68,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 html, body { height: 100%; }
 body {
 	background: var(--bg); color: var(--text);
-	font: 14px/1.6 var(--sans); /* P71：行高 1.65→1.6，聊天正文更紧 */
+	font: 500 14px/1.6 var(--sans); /* UI v3.1 苹果风：正文 medium 字重 */
 	overflow: hidden;
 	-webkit-font-smoothing: antialiased;
 }
@@ -339,7 +339,7 @@ html:not([data-theme="light"]) .msg .body :is(h1, h2, h3, h4) { color: #ffffff; 
 	background: transparent; display: flex; align-items: center; justify-content: center;
 	font-size: 30px; color: var(--faint); /* UI v3.1：幽灵徽标，无底色无辉光 */
 }
-#welcome h1 { font-size: 26px; font-weight: 600; letter-spacing: -.3px; margin-bottom: 10px; } /* UI v3.1：标题升 26px 档 */
+#welcome h1 { font-size: 26px; font-weight: 700; letter-spacing: -.5px; margin-bottom: 10px; } /* UI v3.1：标题升 26px 档 */
 #welcome .sub { color: var(--dim); font-size: 13px; margin-bottom: 0; }
 #welcome .sub b { color: var(--text); font-weight: 600; }
 .w-tasks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 44px; }
@@ -711,7 +711,7 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 /* 会话项去边框去底色，单行省略 */
 .s-item { border: none !important; padding: 10px 12px; }
 .s-item .t {
-	display: flex; align-items: center; gap: 7px; font-size: 13px; line-height: 1.55;
+	display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; line-height: 1.55;
 	-webkit-line-clamp: unset; -webkit-box-orient: unset;
 }
 .s-item .t .pv { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
