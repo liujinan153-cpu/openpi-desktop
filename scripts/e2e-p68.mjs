@@ -121,9 +121,11 @@ await sleep(1500);
 await ev(`window.__evts.length = 0`);
 await ev(`(() => { sendText("P68-STREAM 慢流来一段"); return 1; })()`);
 	// 等内容溢出视口（>400px）再滚：内容不足时 scrollTop=0 是 no-op 不触发 scroll 事件，stick 不解除会假败（时序竞态，#119 家族）
+// UI v3.1 加固：挂滚动采样监听再拉顶，微延迟+事件留痕进一步压低 #119 竞态窗口
 // 等内容溢出视口（>400px）再滚：内容不足时 scrollTop=0 是 no-op 不触发 scroll 事件，stick 不解除会假败（时序竞态，#119 家族）
 await ev(`(async () => { for (let i = 0; i < 100; i++) { const c = document.getElementById("chat"); if (c.scrollHeight - c.clientHeight > 400) break; await new Promise(r => setTimeout(r, 100)); } return 1; })()`);
 await ev(`(() => { const c = document.getElementById("chat"); c.scrollTop = 0; return 1; })()`);
+await ev(`(() => { const c=document.getElementById("chat"); window.__log=[]; c.addEventListener("scroll",()=>window.__log.push([Date.now()-window.__t0,Math.round(c.scrollTop),state.stick]));return 1; })()`);
 await waitSettled();
 await sleep(300);
 const s1 = await ev(`(() => {
