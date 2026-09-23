@@ -951,8 +951,15 @@ function setStatus(text) { statusLeft.textContent = text; }
 
 function setStreaming(on) {
 	state.streaming = on;
-	btnSend.textContent = on ? "■" : "↑";
-	btnSend.title = on ? "停止" : "发送";
+	/* UI v3.1：可见层走 lucide 图标；.bs-t 隐藏文本锚点保留供 e2e textContent 断言 */
+	const want = on ? "stop" : "send";
+	if (btnSend.dataset.st !== want) {
+		btnSend.dataset.st = want;
+		btnSend.innerHTML = on
+			? '<span class="bs-t">■</span><i data-lucide="square" class="bs-ic"></i>'
+			: '<span class="bs-t">↑</span><i data-lucide="arrow-up" class="bs-ic"></i>';
+		refreshIcons();
+	}	btnSend.title = on ? "停止" : "发送";
 	btnSend.classList.toggle("stop", on);
 	input.placeholder = on
 		? "Agent 运行中… Enter = 插话 (steer)"
