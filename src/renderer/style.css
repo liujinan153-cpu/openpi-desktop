@@ -202,7 +202,7 @@ body {
 	background: var(--grad); border: none; color: var(--btn-fg); font-weight: 600; /* UI v3.1：白按钮（亮色暖黑） */
 	box-shadow: none;
 }
-.btn.primary:hover { filter: brightness(.93); box-shadow: none; }
+.btn.primary:hover { filter: brightness(.93); box-shadow: none; transform: translateY(-1px); }
 .btn.primary:disabled { opacity: .45; cursor: not-allowed; filter: none; box-shadow: none; }
 .btn.danger { background: transparent; border-color: color-mix(in srgb, var(--red) 40%, transparent); color: var(--red); }
 .btn.danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); }
@@ -348,7 +348,7 @@ html:not([data-theme="light"]) .msg .body :is(h1, h2, h3, h4) { color: #ffffff; 
 	padding: 18px 20px; cursor: pointer; color: var(--text); font-family: inherit;
 	transition: border-color var(--t-fast), background var(--t-fast); text-align: left; min-height: 0; display: flex; flex-direction: column; gap: 6px;
 }
-.w-task:hover { border-color: var(--border2); background: var(--hover); transform: none; }
+.w-task:hover { border-color: var(--border2); background: var(--hover); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .w-task .ic { font-size: 20px; color: var(--dim); }
 .w-task .ic svg.lucide { width: 18px; height: 18px; vertical-align: -4px; }
 .w-task b { font-size: 13px; font-weight: 500; }
@@ -753,10 +753,12 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 .s-item .pin { flex: none; font-size: 10px; }
 /* 当前会话标题 tab（UI v3.1：完整胶囊——四角全圆 + 全边框，不再做贴边标签开口） */
 #chat-tab {
-	display: flex; align-items: center; gap: 8px; margin: 8px 14px 0; padding: 6px 12px;
-	background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-sm);
-	font-size: 12.5px; max-width: 360px; min-width: 200px;
-}
+	display: flex; align-items: center; gap: 8px; margin: 0 0 0 10px; padding: 5px 10px;
+	background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
+	font-size: 12.5px; max-width: 360px; min-width: 0; overflow: hidden;
+	transition: background var(--t-fast), border-color var(--t-fast);
+} /* UI v3.1：并入顶栏第一行 */
+#chat-tab:hover { background: var(--hover); border-color: var(--line); }
 #chat-tab .ct-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex: none; }
 #chat-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 #chat-tab-close { border: none; background: transparent; color: var(--dim); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 5px; }
@@ -1242,13 +1244,16 @@ pre:hover .code-copy { opacity: 1; }
 #settings .settings-sec:first-child { margin-top: 0; }
 #settings .tab-pane > p.dim.small { margin: 0 0 12px; }
 
-/* 行卡 = 一行一张卡：bg2 抬升 + 1px 边、r-md 圆角、14/16 padding、10px 间距、hover 无位移 */
+/* 行卡 = 一行一张卡：bg2 抬升 + 1px 边、r-md 圆角、14/16 padding、10px 间距、悬停浮起 */
 #settings .settings-content .tab-pane > div[id$='-card'],
 #settings .settings-content .tab-pane > .cu-card,
 #settings .settings-content .tab-pane > .form-grid {
 	background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-md);
 	padding: 14px 16px; margin: 0 0 10px;
+	transition: box-shadow var(--t-fast), border-color var(--t-fast);
 }
+#settings .settings-content .tab-pane > div[id$='-card']:hover,
+#settings .settings-content .tab-pane > .cu-card:hover { border-color: var(--line2); box-shadow: var(--shadow-sm); } /* UI v3.1：悬停浮起 */
 #settings .settings-content .tab-pane > div[id$='-card'] > p > b,
 #settings .settings-content .cu-head b { font-size: 14px; font-weight: 600; }
 #settings .settings-content .tab-pane > div[id$='-card'] > p > .dim { font-size: 12px; }

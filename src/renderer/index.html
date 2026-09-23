@@ -34,6 +34,12 @@
 			<header id="topbar">
 				<button id="btn-sidebar" class="icon-btn" title="收起/展开侧栏"><i data-lucide="panel-left"></i></button>
 				<div class="brand"><span class="brand-glyph"><i data-lucide="diamond"></i></span>OpenPi <span class="tag">Desktop</span></div>
+				<!-- UI v3.1：会话/项目名并入顶栏第一行（原独立胶囊行撤除） -->
+				<div id="chat-tab" hidden>
+					<span class="ct-dot"></span>
+					<span id="chat-tab-title">新会话</span>
+					<button id="chat-tab-close" title="结束当前会话，开新会话"><i data-lucide="x"></i></button>
+				</div>
 				<div class="spacer"></div>
 				<button id="btn-notif" class="icon-btn" title="通知中心（后台任务/子任务完成都会留痕）"><i data-lucide="bell"></i><span id="notif-badge" hidden></span></button>
 				<button id="btn-settings" class="icon-btn" title="模型与供应商设置"><i data-lucide="settings"></i></button>
@@ -41,14 +47,6 @@
 				<button id="btn-review-panel" class="icon-btn" title="会话改动（自会话基线以来的文件变更）"><i data-lucide="git-compare"></i></button>
 				<button id="btn-dock" class="icon-btn" title="显示/隐藏侧边面板 (Ctrl+Alt+B)"><i data-lucide="panel-right"></i></button>
 			</header>
-
-			<!-- M5：当前会话标题 tab -->
-			<div id="chat-tab" hidden>
-				<span class="ct-dot"></span>
-				<span id="chat-tab-title">新会话</span>
-				<div class="spacer"></div>
-				<button id="chat-tab-close" title="结束当前会话，开新会话"><i data-lucide="x"></i></button>
-			</div>
 
 			<!-- P67：chat-wrap（relative）承载 minimap 对话轨道（不随内容滚动） -->
 			<div id="chat-wrap">
