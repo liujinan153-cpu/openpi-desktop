@@ -19,14 +19,13 @@
 				<button id="btn-import" title="导入外部会话（Claude Code 等）"><i data-lucide="download" style="width:13px;height:13px;vertical-align:-2px"></i></button>
 			</div>
 			<div id="session-list" class="side-list"><div class="side-empty">加载中…</div></div>
-			<!-- UI v3.1：侧栏底部账户条（静态展示；后续可接账户/用量数据） -->
+			<!-- UI v3.1：侧栏底部账户条（上下文仪表由 app.js 注入到 sf-main 之后） -->
 			<div class="side-foot">
 				<span class="avatar">O</span>
 				<div class="sf-main">
 					<div class="sf-name">OpenPi</div>
 					<div class="sf-sub">本地优先 · 离线可用</div>
 				</div>
-				<span class="usage-pill" id="side-usage" hidden></span>
 			</div>
 		</aside>
 

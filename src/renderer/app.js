@@ -2740,7 +2740,10 @@ ctxText.id = "ctx-text";
 ctxText.className = "dim mono";
 ctxTrack.appendChild(ctxBar);
 ctxWrap.append(ctxTrack, ctxText);
-$("statusbar").prepend(ctxWrap);
+/* UI v3.1 留白松绑：上下文仪表从状态栏挪到侧栏账户条（状态栏只留状态/模型/工具/累计） */
+const sfMain = document.querySelector(".side-foot .sf-main");
+if (sfMain) sfMain.after(ctxWrap);
+else $("statusbar").prepend(ctxWrap);
 const fmtWin = (n) => (n >= 1000000 ? `${(n / 1000000).toFixed(n % 1000000 ? 1 : 0)}M` : `${Math.round(n / 1000)}k`);
 
 function updateCtxBar(usage) {
@@ -2754,7 +2757,6 @@ function updateCtxBar(usage) {
 		ctxText.textContent = win ? `上下文 0 / ${fmtWin(win)}` : "";
 		ctxWrap.title = win ? `上下文窗口 ${fmtWin(win)} · 压缩触发线 ${Math.round((1 - 16384 / win) * 100)}% · 接力线 ${HANDOFF_PCT * 100}%` : "";
 		state.ctx = null;
-		syncSideUsage(); // UI v3.1：侧栏用量 pill
 		return;
 	}
 	const pct = Math.min(100, (used / win) * 100);
@@ -2763,17 +2765,6 @@ function updateCtxBar(usage) {
 	ctxText.textContent = `上下文 ${(used / 1000).toFixed(1)}k / ${fmtWin(win)} · ${pct.toFixed(0)}%`;
 	ctxWrap.title = `上下文: ${(used / 1000).toFixed(1)}k / ${fmtWin(win)} (${pct.toFixed(1)}%) · 压缩触发线 ${Math.round((1 - 16384 / win) * 100)}% · 接力线 ${HANDOFF_PCT * 100}%`;
 	state.ctx = { pct, used, win };
-	syncSideUsage(); // UI v3.1：侧栏用量 pill
-}
-
-/* UI v3.1：侧栏底部用量 pill = 本会话上下文占用%（数据源同 statusbar 上下文仪表） */
-function syncSideUsage() {
-	const el = document.getElementById("side-usage");
-	if (!el) return;
-	const pct = state.ctx?.pct;
-	el.hidden = pct == null;
-	el.textContent = pct == null ? "" : `${Math.round(pct)}%`;
-	el.title = pct == null ? "" : `本会话上下文占用 ${pct.toFixed(1)}%`;
 }
 
 /* ---- P24：上下文接力（占用过阈值 → 压缩摘要 → 新会话继续） ---- */
