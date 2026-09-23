@@ -24,6 +24,8 @@ npm run smoke:package # 检查打包依赖、更新清单与运行时
 npm run licenses:audit # 生成/校验第三方许可证清单
 ```
 
+> ⚠️ 开发环境要求 **Node 22+**：部分测试/发布脚本用 ESM 顶层特性，Node 16/18 会报 ERR_REQUIRE_ESM 或 import.meta.dirname 错误。若系统默认 node 过旧，请显式用新版运行，如 `C:\...node-v22.14.0-win-x64\node.exe scripts/publish.mjs`。
+
 > 在 pi Desktop / 其他 Electron 宿主的终端里启动时，需先 `unset ELECTRON_RUN_AS_NODE`，否则 electron.exe 会以纯 Node 模式运行。
 
 ## 功能（M0 + M1 已验证）

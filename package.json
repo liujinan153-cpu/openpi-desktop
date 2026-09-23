@@ -17,7 +17,7 @@
     "poc": "node scripts/poc-node.mjs",
     "start": "electron .",
     "check": "node scripts/verify-check.cjs",
-    "test:unit": "node scripts/unit-p53.cjs && node scripts/unit-p55.cjs && node scripts/unit-p64b.mjs && node scripts/unit-p69.mjs && node scripts/unit-p70.mjs && node scripts/unit-p71.mjs",
+    "test:unit": "node scripts/unit-p64b.mjs && node scripts/unit-p69.mjs && node scripts/unit-p70.mjs && node scripts/unit-p71.mjs && node scripts/unit-p72a.mjs && node scripts/unit-p72b.mjs && node scripts/unit-p73.mjs && node scripts/unit-p76.mjs",
     "test:ci": "npm run check && npm run test:unit",
     "e2e:all": "node scripts/e2e-all.mjs",
     "e2e:mock": "node scripts/e2e-all.mjs --mock-only",
