@@ -743,11 +743,11 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 .side-tabs #btn-import:hover { opacity: 1; }
 /* 置顶图钉 */
 .s-item .pin { flex: none; font-size: 10px; }
-/* 当前会话标题 tab */
+/* 当前会话标题 tab（UI v3.1：完整胶囊——四角全圆 + 全边框，不再做贴边标签开口） */
 #chat-tab {
-	display: flex; align-items: center; gap: 8px; margin: 8px 14px 0; padding: 5px 12px;
-	background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-sm) var(--r-sm) 0 0;
-	border-bottom: none; font-size: 12.5px; max-width: 360px; min-width: 200px;
+	display: flex; align-items: center; gap: 8px; margin: 8px 14px 0; padding: 6px 12px;
+	background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-sm);
+	font-size: 12.5px; max-width: 360px; min-width: 200px;
 }
 #chat-tab .ct-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex: none; }
 #chat-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
