@@ -184,7 +184,8 @@ body {
 	display: flex; align-items: center; gap: 8px; margin-right: 4px;
 	color: var(--text);
 }
-.brand::before { content: "◆"; -webkit-text-fill-color: initial; font-size: 13px; color: var(--dim); } /* UI v3.1：品牌徽标扁平灰 */
+.brand .brand-glyph { display: inline-flex; color: var(--dim); } /* UI v3.1：◆ 字符 → lucide diamond */
+.brand .brand-glyph svg.lucide { width: 15px; height: 15px; vertical-align: -2px; }
 .brand .tag {
 	font-size: 10px; color: var(--dim); border: 1px solid var(--border2); border-radius: 5px;
 	padding: 0 5px; background: var(--bg3);
@@ -1031,7 +1032,7 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 .plan-step input:checked + .plan-step-txt { text-decoration: line-through; opacity: .6; }
 .plan-actions { display: flex; gap: 8px; margin-top: 10px; }
 #memory-mask { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 300; }
-#memory-modal { width: min(520px, 90vw); max-height: 70vh; overflow: auto; background: var(--bg-2, #1c1f26); border: 1px solid rgba(255, 255, 255, .1); border-radius: var(--r-lg); padding: 16px; }
+#memory-modal { width: min(520px, 90vw); max-height: 70vh; overflow: auto; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--r-lg); padding: 16px; } /* UI v3.1：修 --bg-2 死变量 + 亮色主题边框可见 */
 .modal-head { display: flex; align-items: center; font-weight: 700; }
 #memory-list { display: flex; flex-direction: column; gap: 6px; }
 .memory-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid rgba(255, 255, 255, .08); border-radius: var(--r-sm); }

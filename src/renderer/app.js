@@ -2439,6 +2439,15 @@ $("btn-settings").addEventListener("click", openSettings);
 function closeModelPinsModal() { $("model-pins-mask")?.classList.add("hidden"); }
 $("btn-settings-close").addEventListener("click", () => { settingsMask.classList.add("hidden"); closeModelPinsModal(); });
 $("btn-settings-back")?.addEventListener("click", () => { settingsMask.classList.add("hidden"); closeModelPinsModal(); }); // UI v3.1：全页版左上返回
+/* UI v3.1：Esc 关全页设置（护栏：模型展示管理/全自动确认等上层弹窗开着时先让位） */
+document.addEventListener("keydown", (e) => {
+	if (e.key !== "Escape") return;
+	if (settingsMask.classList.contains("hidden")) return;
+	if (!$("model-pins-mask")?.classList.contains("hidden")) return;
+	if (!$("fa-confirm-mask")?.classList.contains("hidden")) return;
+	settingsMask.classList.add("hidden");
+	closeModelPinsModal();
+});
 settingsMask.addEventListener("click", (e) => { if (e.target === settingsMask) { settingsMask.classList.add("hidden"); closeModelPinsModal(); } });
 
 document.querySelectorAll(".tab").forEach((t) =>
