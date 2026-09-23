@@ -19,6 +19,15 @@
 				<button id="btn-import" title="导入外部会话（Claude Code 等）"><i data-lucide="download" style="width:13px;height:13px;vertical-align:-2px"></i></button>
 			</div>
 			<div id="session-list" class="side-list"><div class="side-empty">加载中…</div></div>
+			<!-- UI v3.1：侧栏底部账户条（静态展示；后续可接账户/用量数据） -->
+			<div class="side-foot">
+				<span class="avatar">O</span>
+				<div class="sf-main">
+					<div class="sf-name">OpenPi</div>
+					<div class="sf-sub">本地优先 · 离线可用</div>
+				</div>
+				<span class="usage-pill" id="side-usage" hidden></span>
+			</div>
 		</aside>
 
 		<!-- 主列 -->
@@ -97,7 +106,8 @@
 					<div id="at-list"></div>
 					<div class="slash-hint dim small">↑↓ 选择 · Enter/Tab 插入路径 · Esc 关闭</div>
 				</div>
-				<div class="composer-card">
+				<!-- UI v3.1：上下文条独立成层（Codex 式双层），chips 从输入卡内迁出，id 全部保留 -->
+				<div class="ctx-deck">
 					<div class="ctx-chips">
 						<button id="btn-workspace" class="chip" title="选择工作区文件夹"><i data-lucide="folder"></i> <span id="workspace-label">选择文件夹</span></button>
 						<button id="chip-branch" class="chip" hidden title="当前分支（点击打开 Git 面板）"><i data-lucide="git-branch"></i> <span id="branch-label"></span></button>
@@ -116,6 +126,8 @@
 							<option value="off">手动</option>
 						</select>
 					</div>
+				</div>
+				<div class="composer-card">
 					<div id="img-bar" hidden></div>
 					<textarea id="input" rows="1" placeholder="随心输入…（Enter 发送 / 运行中 Enter = 插话 / 支持粘贴或拖入图片）"></textarea>
 					<div class="composer-row">
@@ -787,5 +799,6 @@
 	<script src="p72-logic.js"></script><!-- P72：纯逻辑层（subagent 卡状态机 + 时间线计数），须在 app.js 之前加载 -->
 	<script src="p73-skills-logic.js"></script><!-- P73 第二批：技能页筛选/计数纯逻辑层，须在 app.js 之前加载 -->
 	<script src="app.js"></script>
+	<script src="ui-select.js"></script><!-- UI v3.1：select 自绘弹层（须在 app.js 之后，DOM 就绪即代理） -->
 </body>
 </html>

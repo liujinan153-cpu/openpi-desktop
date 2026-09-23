@@ -2786,15 +2786,16 @@ async function doHandoff(pct) {
 	}
 }
 
-/* ---- M2 工具按钮 ---- */
+/* ---- M2 工具按钮（UI v3.1：emoji → lucide 单色图标） ---- */
 const m2bar = document.createElement("div");
 m2bar.id = "m2bar";
 m2bar.innerHTML = `
-	<button id="btn-compact" class="m2btn" title="手动压缩上下文（生成摘要，释放窗口空间）">🗜</button>
-	<button id="btn-tree" class="m2btn" title="会话树（分支导航）">🌳</button>
-	<button id="btn-export" class="m2btn" title="导出会话为 HTML">📤</button>
-	<button id="btn-rename" class="m2btn" title="重命名会话">✏</button>`;
+	<button id="btn-compact" class="m2btn" title="手动压缩上下文（生成摘要，释放窗口空间）"><i data-lucide="minimize-2"></i></button>
+	<button id="btn-tree" class="m2btn" title="会话树（分支导航）"><i data-lucide="list-tree"></i></button>
+	<button id="btn-export" class="m2btn" title="导出会话为 HTML"><i data-lucide="share"></i></button>
+	<button id="btn-rename" class="m2btn" title="重命名会话"><i data-lucide="pencil"></i></button>`;
 document.querySelector("#statusbar .spacer")?.before(m2bar) ?? $("statusbar").appendChild(m2bar);
+refreshIcons();
 
 $("btn-compact").addEventListener("click", async () => {
 	if (state.streaming) return addSysLine("请等回合结束后再压缩", true);
