@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<title>UI v3 · 设置弹窗设计图 — OpenPi Desktop</title>
+<link rel="stylesheet" href="mock.css" />
+<style>
+	/* 设计稿背景板：模拟主界面虚化衬底（接入时删除） */
+	.backdrop-fake { position: fixed; inset: 0; display: flex; filter: saturate(.9); }
+	.bk-side { width: 276px; background: var(--surface); border-right: 1px solid var(--line); }
+	.bk-main { flex: 1; display: flex; flex-direction: column; }
+	.bk-top { height: 46px; border-bottom: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 8px; }
+	.bk-chat { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 24px 15%; gap: 12px; }
+	.bk-line { height: 12px; border-radius: 6px; background: var(--surface-2); }
+	.bk-line.w60 { width: 60%; } .bk-line.w80 { width: 80%; } .bk-line.w40 { width: 40%; }
+	.bk-line.user { align-self: flex-end; width: 45%; background: var(--active); }
+	.bk-composer { height: 110px; margin: 0 15% 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line2); }
+</style>
+</head>
+<body>
+
+<!-- 衬底 -->
+<div class="backdrop-fake">
+	<div class="bk-side">
+		<div class="bk-line" style="margin:14px 12px 0; height:30px; background:var(--active)"></div>
+		<div class="bk-line" style="margin:10px 12px 0; height:28px"></div>
+		<div class="bk-line w80" style="margin:14px 12px 0"></div>
+		<div class="bk-line w60" style="margin:10px 12px 0"></div>
+	</div>
+	<div class="bk-main">
+		<div class="bk-top">
+			<span style="width:22px;height:22px;border-radius:7px;background:var(--btn-bg);color:var(--btn-fg)"></span>
+			<b style="font-size:13px">OpenPi <span class="dim" style="font-weight:600;font-size:11px">Desktop</span></b>
+		</div>
+		<div class="bk-chat">
+			<div class="bk-line w40"></div>
+			<div class="bk-line user"></div>
+			<div class="bk-line w80"></div>
+			<div class="bk-line w60"></div>
+		</div>
+		<div class="bk-composer"></div>
+	</div>
+</div>
+
+<!-- ================= 设置弹窗 ================= -->
+<div class="modal-mask" style="position:fixed">
+	<div id="settings" class="modal">
+		<div class="modal-head">
+			<span>设置</span>
+			<div class="spacer"></div>
+			<button class="icon-btn"><i data-lucide="x"></i></button>
+		</div>
+
+		<div class="settings-body">
+			<aside class="settings-nav">
+				<div id="settings-search-row" style="position:relative;margin-bottom:6px">
+					<i data-lucide="search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--faint)"></i>
+					<input class="input pill" placeholder="搜索设置…" style="width:100%;padding-left:30px" />
+				</div>
+				<div class="tabs">
+					<span class="nav-group-label">偏好</span>
+					<button class="tab active" data-tab="general"><i data-lucide="settings-2"></i>常规</button>
+					<span class="nav-group-label">模型服务</span>
+					<button class="tab" data-tab="keys"><i data-lucide="key"></i>API 密钥</button>
+					<button class="tab" data-tab="providers"><i data-lucide="boxes"></i>自定义供应商</button>
+					<button class="tab" data-tab="local"><i data-lucide="cpu"></i>本地模型</button>
+					<span class="nav-group-label">智能体</span>
+					<button class="tab" data-tab="subagents"><i data-lucide="bot"></i>子智能体</button>
+					<button class="tab" data-tab="commands"><i data-lucide="file-text"></i>指令</button>
+					<button class="tab" data-tab="skills"><i data-lucide="sparkles"></i>技能</button>
+					<button class="tab" data-tab="computer"><i data-lucide="monitor"></i>电脑控制</button>
+					<button class="tab" data-tab="tools"><i data-lucide="wrench"></i>工具与集成</button>
+					<button class="tab" data-tab="extensions"><i data-lucide="puzzle"></i>扩展</button>
+					<span class="nav-group-label">系统</span>
+					<button class="tab" data-tab="about"><i data-lucide="info"></i>信息</button>
+				</div>
+			</aside>
+
+			<div class="settings-content">
+
+				<!-- 常规 -->
+				<div id="tab-general" class="tab-pane">
+					<h2 class="pane-title">常规</h2>
+					<p class="pane-sub">外观与行为偏好，改动立即生效并保存在本机。</p>
+
+					<p class="settings-sec">会话</p>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>默认审批档位</b>
+								<div class="rc-desc">新会话的起始档位；切到全自动档时会额外确认一次</div>
+							</div>
+							<select class="input" style="width:150px"><option>自动编辑</option><option>只读</option><option>全自动</option><option>目标模式</option><option>计划模式</option></select>
+						</div>
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>上下文自动压缩</b>
+								<div class="rc-desc">接近窗口上限时自动把历史压缩成摘要</div>
+							</div>
+							<label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+						</div>
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>上下文接力</b>
+								<div class="rc-desc">占用达 80% 时自动压缩出交接摘要，开新会话继续任务</div>
+							</div>
+							<select class="input" style="width:150px"><option>自动接力</option><option>接力前询问</option><option>手动</option></select>
+						</div>
+					</div>
+
+					<p class="settings-sec">外观</p>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>主题</b>
+								<div class="rc-desc">跟随 Windows 深浅色，或手动固定</div>
+							</div>
+							<div style="display:flex;gap:6px">
+								<button class="btn ghost small">跟随系统</button>
+								<button class="btn ghost small">浅色</button>
+								<button class="btn primary small">深色</button>
+							</div>
+						</div>
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>界面字体</b>
+								<div class="rc-desc">仅列出本机已安装的候选字体</div>
+							</div>
+							<select class="input" style="width:180px"><option>系统默认（Segoe UI）</option><option>微软雅黑</option><option>Cascadia Code</option></select>
+						</div>
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>界面缩放</b>
+								<div class="rc-desc">90–130%，全局生效</div>
+							</div>
+							<input type="range" min="90" max="130" step="5" value="100" style="width:160px;accent-color:var(--accent)" />
+							<span class="dim small mono" style="width:40px;text-align:right">100%</span>
+						</div>
+					</div>
+
+					<p class="settings-sec">输入</p>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>Enter 发送</b>
+								<div class="rc-desc">关闭后 Ctrl+Enter 发送，Enter 换行</div>
+							</div>
+							<label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+						</div>
+					</div>
+				</div>
+
+				<!-- API 密钥 -->
+				<div id="tab-keys" class="tab-pane hidden">
+					<h2 class="pane-title">API 密钥</h2>
+					<p class="pane-sub">为内置 / 自定义供应商保存密钥，写入 ~/.pi/agent/auth.json（权限 0600）。</p>
+					<p class="settings-sec">已保存密钥</p>
+					<div class="kv-row">
+						<span class="status-dot ok"></span>
+						<span class="k">zhipu</span><div class="spacer"></div>
+						<span class="v">••••••••••••3f2a</span>
+						<button class="icon-btn" title="测试连通"><i data-lucide="zap"></i></button>
+						<button class="icon-btn" title="删除"><i data-lucide="trash-2"></i></button>
+					</div>
+					<div class="kv-row">
+						<span class="status-dot ok"></span>
+						<span class="k">openai</span><div class="spacer"></div>
+						<span class="v">$OPENAI_API_KEY</span>
+						<button class="icon-btn"><i data-lucide="zap"></i></button>
+						<button class="icon-btn"><i data-lucide="trash-2"></i></button>
+					</div>
+					<p class="settings-sec">添加密钥</p>
+					<div class="form-row">
+						<input class="input" placeholder="provider id，如 openai / anthropic / zhipu" style="flex:1" />
+						<input class="input" placeholder="API Key" type="password" style="flex:1" />
+						<button class="btn primary">保存密钥</button>
+					</div>
+					<p class="msg-tip" style="margin-top:8px">选供应商 → 贴 Key → 点测试，绿灯即完成。</p>
+				</div>
+
+				<!-- 占位 tabs -->
+				<div id="tab-providers" class="tab-pane hidden"><h2 class="pane-title">自定义供应商</h2><p class="pane-sub">填 Base URL 和 Key → 拉取模型 → 保存。</p><div class="row-card single dim small">（设计稿略 · 接入时按同套 row-card / form-grid 体系排）</div></div>
+				<div id="tab-local" class="tab-pane hidden"><h2 class="pane-title">本地模型</h2><p class="pane-sub">Ollama / LM Studio / vLLM 一键接入。</p><div class="row-card single dim small">（设计稿略）</div></div>
+				<div id="tab-subagents" class="tab-pane hidden"><h2 class="pane-title">子智能体</h2><p class="pane-sub">内置角色 + 自定义角色，派发时按白名单与提示词运行。</p><div class="row-card single dim small">（设计稿略）</div></div>
+				<div id="tab-commands" class="tab-pane hidden"><h2 class="pane-title">指令</h2><p class="pane-sub">全局 AGENTS.md，优先于项目指令。</p><div class="row-card single dim small">（设计稿略）</div></div>
+				<div id="tab-computer" class="tab-pane hidden"><h2 class="pane-title">电脑控制</h2><p class="pane-sub">让 Agent 看到并操作你的电脑。</p><div class="row-card single dim small">（设计稿略）</div></div>
+				<div id="tab-tools" class="tab-pane hidden"><h2 class="pane-title">工具与集成</h2><p class="pane-sub">MCP / 联网检索 / 生图 / 审计 / Hooks。</p><div class="row-card single dim small">（设计稿略）</div></div>
+				<div id="tab-extensions" class="tab-pane hidden"><h2 class="pane-title">扩展</h2><p class="pane-sub">内置能力聚合 + MCP 接入。</p><div class="row-card single dim small">（设计稿略）</div></div>
+
+				<!-- 技能 -->
+				<div id="tab-skills" class="tab-pane hidden">
+					<h2 class="pane-title">技能</h2>
+					<p class="pane-sub">SKILL.md 能力包，启用后写入系统提示词，新会话生效。</p>
+					<div class="skill-head" style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+						<button class="chip chip-on">全部 12</button>
+						<button class="chip">全局 9</button>
+						<button class="chip">项目 3</button>
+						<div class="spacer"></div>
+						<input class="input" placeholder="搜索技能…" style="width:160px" />
+						<button class="btn ghost small"><i data-lucide="download"></i> 导入</button>
+						<button class="btn ghost small">＋ 新建</button>
+					</div>
+					<p class="settings-sec">全局级 · ~/.pi/agent/skills</p>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>weekly-report</b>
+								<div class="rc-desc">用户说成语/主题时生成周报…</div>
+							</div>
+							<label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+							<button class="icon-btn"><i data-lucide="pencil"></i></button>
+						</div>
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>微短剧剧本创作</b>
+								<div class="rc-desc">50-100 集付费短剧全流程剧本</div>
+							</div>
+							<label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+							<button class="icon-btn"><i data-lucide="pencil"></i></button>
+						</div>
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>xlsx <span class="dim small" style="font-weight:400">· 内置办公</span></b>
+								<div class="rc-desc">表格创建 / 编辑 / 公式 / 图表</div>
+							</div>
+							<label class="switch"><input type="checkbox" /><span class="slider"></span></label>
+							<button class="icon-btn"><i data-lucide="wrench"></i></button>
+						</div>
+					</div>
+					<p class="settings-sec">项目级 · .agents/skills</p>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>release-check</b>
+								<div class="rc-desc">发版前回归清单核对（本项目专属）</div>
+							</div>
+							<label class="switch"><input type="checkbox" checked /><span class="slider"></span></label>
+						</div>
+					</div>
+				</div>
+
+				<!-- 信息 -->
+				<div id="tab-about" class="tab-pane hidden">
+					<h2 class="pane-title">信息</h2>
+					<p class="pane-sub">版本 / 更新 / 日志 / 反馈。</p>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>软件更新 <span class="dim small" style="font-weight:400">当前 v0.65.2 · 已是最新</span></b>
+								<div class="rc-desc">更新源：公开 GitHub Releases</div>
+							</div>
+							<button class="btn ghost small">⟳ 检查更新</button>
+							<button class="btn ghost small">📦 导出日志包</button>
+						</div>
+					</div>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>应用</b>
+								<div class="rc-desc">OpenPi Desktop · Electron 44 · AGPL-3.0</div>
+							</div>
+							<b class="mono">v0.65.2</b>
+						</div>
+					</div>
+					<div class="row-card">
+						<div class="rc-row">
+							<div class="rc-main">
+								<b>开发者模式</b>
+								<div class="rc-desc">打开独立 DevTools 窗口（排障用）</div>
+							</div>
+							<label class="switch"><input type="checkbox" /><span class="slider"></span></label>
+						</div>
+					</div>
+				</div>
+
+			</div><!-- /settings-content -->
+		</div><!-- /settings-body -->
+
+		<div class="modal-foot">
+			配置即契约：只写 Pi 标准文件，与 pi CLI 双向兼容。
+			<div class="spacer"></div>
+			<button class="btn ghost small">检查内核更新</button>
+			<button class="btn ghost small">↻ 重载模型目录</button>
+		</div>
+	</div>
+</div>
+
+<div class="mock-bar">
+	<button data-mock="theme">☀ / ☾</button>
+	<span class="mb-sep"></span>
+	<a href="chat.html" style="text-decoration:none;color:var(--dim);font-size:12px;padding:5px 12px">← 主界面</a>
+	<a href="index.html" style="text-decoration:none;color:var(--dim);font-size:12px;padding:5px 12px">↩ 总览</a>
+</div>
+
+<script src="../../src/renderer/vendor/lucide.min.js"></script>
+<script src="mock.js"></script>
+</body>
+</html>
