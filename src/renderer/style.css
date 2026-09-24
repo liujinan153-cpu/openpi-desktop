@@ -190,7 +190,7 @@ body {
 /* ================= 顶栏 ================= */
 #topbar {
 	display: flex; align-items: center; gap: 8px;
-	padding: 8px 12px; border-bottom: 1px solid var(--border); /* P71：顶栏 padding 归到 4 的倍数 */
+	height: 47px; padding: 0 12px; border-bottom: 1px solid var(--border); /* UI v3.1：固定 47px（含底线），与 dock 标签条持平 */
 	background: var(--topbar-grad);
 	backdrop-filter: blur(8px);
 }
@@ -360,7 +360,7 @@ html:not([data-theme="light"]) .msg .body :is(h1, h2, h3, h4) { color: #ffffff; 
 .w-task {
 	background: transparent; border: 1px solid var(--border); border-radius: var(--r-md);
 	padding: 18px 20px; cursor: pointer; color: var(--text); font-family: inherit;
-	transition: border-color var(--t-fast), background var(--t-fast), transform var(--spring), box-shadow var(--spring); text-align: left; min-height: 0; display: flex; flex-direction: column; gap: 6px;
+	transition: border-color var(--t-fast), background var(--t-fast); text-align: left; min-height: 0; display: flex; flex-direction: column; gap: 6px;
 }
 .w-task:hover { border-color: var(--border2); background: var(--hover); transform: translateY(-3px); box-shadow: var(--shadow-lift); } /* UI v3.1：弹性浮起 */
 
@@ -817,9 +817,9 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 #app { overflow: hidden; } /* 不出横向滚动；两侧拖到限度即停 */
 #dock[hidden] { display: none !important; }
 #dock-tabs {
-	display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+	display: flex; align-items: center; gap: 6px; height: 47px; padding: 0 10px;
 	border-bottom: 1px solid var(--border); background: var(--topbar-grad);
-	overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: none; /* P76 修复：tab 多时不换行不竖排，横向滚动 */
+	overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: none; /* UI v3.1：高 47px 与顶栏持平（含底线） */
 }
 .dock-add { border: 1px dashed var(--line2); border-radius: 10px; }
 .dock-add, .dock-add:hover, .dock-add:active { transform: none !important; transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast); } /* UI v3.1：＋ 无任何弹动（transform/过渡全部禁用） */
@@ -1581,12 +1581,12 @@ pre:hover .code-copy { opacity: 1; }
 	padding: 11px 14px; margin-bottom: 8px;
 	background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
 	color: var(--text); font: 500 13px var(--sans); cursor: pointer; text-align: left; position: relative;
-	transition: border-color var(--t-fast), background var(--t-fast), transform var(--spring), box-shadow var(--spring);
+	transition: border-color var(--t-fast), background var(--t-fast);
 }
 .dp-item svg.lucide { width: 15px; height: 15px; color: var(--dim); transition: color var(--t-fast), transform var(--spring); }
-.dp-item:hover { border-color: var(--border2); background: var(--hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
-.dp-item:hover svg.lucide { color: var(--text); transform: scale(1.08); }
-.dp-item:active { transform: translateY(0) scale(.99); }
+.dp-item:hover { border-color: var(--border2); background: var(--hover); }
+.dp-item:hover svg.lucide { color: var(--text); }
+
 
 /* ================= UI v3.1：＋ 增量下拉菜单（锚定 dock-add） ================= */
 #dock-add-pop {
