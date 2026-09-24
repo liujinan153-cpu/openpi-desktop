@@ -106,6 +106,7 @@ function createWindow() {
 		minHeight: 600,
 		backgroundColor: "#0d1017",
 		title: "OpenPi Desktop",
+		icon: path.join(__dirname, "..", "build", "icon.png"), /* UI v3.1：品牌菱形图标 */
 		webPreferences: {
 			preload: path.join(__dirname, "preload.cjs"),
 			contextIsolation: true,
