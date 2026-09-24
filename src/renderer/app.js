@@ -3388,7 +3388,47 @@ $("dock-tabs").addEventListener("click", (e) => {
 	}
 }, true);
 document.querySelectorAll("#dock-picker .dp-item").forEach((b) => b.addEventListener("click", () => showDock(b.dataset.pick))); /* UI v3.1：落地页点选 */
-$("dock-add").addEventListener("click", showPicker); /* UI v3.1：＋ 回到落地页加面板 */
+/* UI v3.1：＋ 增量菜单 —— 列出全部面板，已开的打 ✓，点选即加为标签（不进落地页） */
+const DOCK_PANELS = [
+	["review", "审核", "Ctrl+Shift+G"],
+	["preview", "预览", "Ctrl+T"],
+	["terminal", "终端", ""],
+	["files", "文件", "Ctrl+P"],
+	["subagents", "子智能体", ""],
+	["tasks", "任务", ""],
+	["agents", "指令", ""],
+];
+const DOCK_ICONS = { review: "search", preview: "globe", terminal: "square-terminal", files: "folder", subagents: "bot", tasks: "zap", agents: "scroll-text" };
+let addPop = null;
+function closeAddPop() {
+	if (addPop) { addPop.remove(); addPop = null; }
+}
+function showAddPop(anchor) {
+	closeAddPop();
+	addPop = document.createElement("div");
+	addPop.id = "dock-add-pop";
+	addPop.innerHTML = DOCK_PANELS.map(([k, label, kbd]) => {
+		const open = dockOpenPanes.has(k);
+		let h = '<button class="dp-item' + (open ? " on" : "") + '" data-pick="' + k + '"><i data-lucide="' + DOCK_ICONS[k] + '"></i>' + label;
+		if (open) h += '<span class="dp-cur">✓</span>';
+		if (kbd) h += '<span class="dp-kbd">' + kbd + '</span>';
+		h += '</button>';
+		return h;
+	}).join("");
+	document.body.appendChild(addPop);
+	const r = anchor.getBoundingClientRect();
+	addPop.style.top = r.bottom + 6 + "px";
+	addPop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - addPop.offsetWidth - 12)) + "px";
+	refreshIcons();
+	addPop.addEventListener("click", (e) => {
+		const item = e.target.closest(".dp-item");
+		if (!item) return;
+		closeAddPop();
+		showDock(item.dataset.pick);
+	});
+}
+$("dock-add").addEventListener("click", (e) => { e.stopPropagation(); addPop ? closeAddPop() : showAddPop(e.currentTarget); }); /* UI v3.1：＋=增量添加 */
+document.addEventListener("mousedown", (e) => { if (addPop && !e.target.closest("#dock-add-pop") && !e.target.closest("#dock-add")) closeAddPop(); }, true);
 $("dock-close").addEventListener("click", closeDock);
 // 顶栏已精简：审核入口 = Dock 标签 / 分支 chip / Ctrl+Shift+G
 /* 右上角：显示/隐藏侧边面板（对标 Codex Ctrl+Alt+B） */
@@ -3403,7 +3443,7 @@ function showPicker() {
 	const pk = document.getElementById("dock-picker");
 	if (pk) pk.hidden = false;
 }
-$("btn-dock").addEventListener("click", () => (dock.hidden ? showPicker() : closeDock())); /* UI v3.1：打开=落地页 */
+$("btn-dock").addEventListener("click", () => (dock.hidden ? (dockOpenPanes.size ? showDock(dockLastTab) : showPicker()) : closeDock())); /* UI v3.1：有标签恢复标签，无则落地页 */
 
 /* ---- 审核徽标：Agent 改文件后自动刷新（角标计数 / 面板内容） ---- */
 let reviewTimer = null;

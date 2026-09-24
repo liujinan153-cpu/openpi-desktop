@@ -805,7 +805,7 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 }
 /* ================= P0：右侧 Dock（标签坞：审核 / 预览） ================= */
 #dock {
-	flex: none; width: var(--dock-w, 520px); min-width: var(--dock-w, 520px); display: flex; flex-direction: column;
+	flex: none; width: var(--dock-w, 520px); min-width: 380px; max-width: max(380px, calc(100vw - 880px)); display: flex; flex-direction: column; /* UI v3.1 自适应 */
 	border-left: 1px solid var(--border); background: var(--bg-side); position: relative;
 }
 /* P76：dock 左缘拖拽手柄——拖宽/拖窄 dock，会话区有限度跟随（min-width 兜底，composer 内部布局不乱） */
