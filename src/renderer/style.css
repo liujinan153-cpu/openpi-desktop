@@ -822,6 +822,7 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 	overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: none; /* P76 修复：tab 多时不换行不竖排，横向滚动 */
 }
 .dock-add { border: 1px dashed var(--line2); border-radius: 10px; }
+.dock-add, .dock-add:hover, .dock-add:active { transform: none; } /* UI v3.1：＋ 不做弹动 */
 .dock-add:hover { border-style: solid; border-color: var(--border2); color: var(--text); }
 .dock-tab {
 	border: none; background: transparent; color: var(--dim);
@@ -832,7 +833,7 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 .dock-tab svg.lucide { width: 13px; height: 13px; }
 .dock-tab:hover { color: var(--text); background: var(--hover); }
 .dock-tab.on { color: var(--text); background: var(--bg2); border-color: var(--border2); box-shadow: var(--shadow-sm); }
-#dock-tabs .dock-tab:not(.on) { display: none; } /* UI v3.1 减法：标签条只展示当前面板，＋ 添加/切换 */ /* UI v3.1：活动标签=浮起片 */ /* UI v3.1：激活 = 白色下划线 */
+/* UI v3.1 多开：已开面板的标签全部展示（激活的浮起） */
 .dock-cnt {
 	background: var(--bg4); color: var(--dim); font-size: 9.5px; font-weight: 600;
 	border-radius: 999px; padding: 0 4px; line-height: 13px; min-width: 13px; text-align: center;
@@ -1586,3 +1587,12 @@ pre:hover .code-copy { opacity: 1; }
 .dp-item:hover { border-color: var(--border2); background: var(--hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
 .dp-item:hover svg.lucide { color: var(--text); transform: scale(1.08); }
 .dp-item:active { transform: translateY(0) scale(.99); }
+
+/* ================= UI v3.1：＋ 增量下拉菜单（锚定 dock-add） ================= */
+#dock-add-pop {
+	position: fixed; z-index: 1200; min-width: 190px; max-height: 340px; overflow-y: auto;
+	background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; /* UI v3.1 修复：--bg1 未定义导致弹层透明 */
+	box-shadow: var(--shadow-pop); padding: 5px;
+}
+#dock-add-pop .dp-item { margin-bottom: 2px; }
+#dock-add-pop .dp-cur { margin-left: auto; flex: none; color: var(--green); font-size: 11px; }
