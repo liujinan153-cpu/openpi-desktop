@@ -822,7 +822,7 @@ body.dock-resizing { cursor: col-resize; user-select: none; }
 	overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex: none; /* P76 修复：tab 多时不换行不竖排，横向滚动 */
 }
 .dock-add { border: 1px dashed var(--line2); border-radius: 10px; }
-.dock-add, .dock-add:hover, .dock-add:active { transform: none; } /* UI v3.1：＋ 不做弹动 */
+.dock-add, .dock-add:hover, .dock-add:active { transform: none !important; transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast); } /* UI v3.1：＋ 无任何弹动（transform/过渡全部禁用） */
 .dock-add:hover { border-style: solid; border-color: var(--border2); color: var(--text); }
 .dock-tab {
 	border: none; background: transparent; color: var(--dim);
