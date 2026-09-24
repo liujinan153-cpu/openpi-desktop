@@ -4,11 +4,12 @@
    组件层 token 与 v2 同名，只换值；新增 --btn-fg/--hover/--active/--r-xl
    ============================================================ */
 :root {
-	--bg0: #0a0a09;
-	--bg: #0c0c0b;
-	--bg2: #111110;
-	--bg3: #181816;
-	--bg4: #201f1d;
+	--bg0: #0f0f0e;
+	--bg: #1b1a18; /* UI v3.1：主区=灰面（比侧栏亮一档，Pi-Desktop 明度反转） */
+	--bg2: #232220; /* 卡片/composer 浮起面 */
+	--bg3: #2a2926;
+	--bg4: #33322f;
+	--bg-side: #060607; /* 侧栏/dock=纯黑 */
 	--border: rgba(255, 255, 255, .07);
 	--border2: rgba(255, 255, 255, .13);
 	--text: #ececef;
@@ -103,7 +104,7 @@ body {
 
 /* ================= 侧栏 ================= */
 #sidebar {
-	width: 320px; min-width: 320px; background: var(--bg2);
+	width: 320px; min-width: 320px; background: var(--bg-side);
 	border-right: 1px solid var(--border); display: flex; flex-direction: column;
 }
 #sidebar.collapsed { display: none; }
@@ -588,6 +589,7 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 	--shadow-lg: 0 10px 34px rgba(50, 46, 40, .12);
 	--shadow-sm: 0 1px 2px rgba(70, 50, 25, .07);
 	--shadow-lift: 0 8px 24px rgba(50, 46, 40, .14);
+	--bg-side: #faf9f6;
 }
 [data-theme="light"] #main-col { background: var(--bg); }
 [data-theme="light"] .dot { box-shadow: none; }
@@ -804,7 +806,7 @@ textarea.input { resize: vertical; font-family: var(--mono); }
 /* ================= P0：右侧 Dock（标签坞：审核 / 预览） ================= */
 #dock {
 	flex: none; width: var(--dock-w, 520px); min-width: var(--dock-w, 520px); display: flex; flex-direction: column;
-	border-left: 1px solid var(--border); background: var(--bg2); position: relative;
+	border-left: 1px solid var(--border); background: var(--bg-side); position: relative;
 }
 /* P76：dock 左缘拖拽手柄——拖宽/拖窄 dock，会话区有限度跟随（min-width 兜底，composer 内部布局不乱） */
 #dock-resize {
@@ -1346,7 +1348,7 @@ pre:hover .code-copy { opacity: 1; }
 #btn-review-panel.on { color: var(--accent); }
 #review-panel {
 	width: 280px; min-width: 280px; display: flex; flex-direction: column;
-	background: var(--bg2); border-left: 1px solid var(--border);
+	background: var(--bg-side); border-left: 1px solid var(--border);
 }
 #review-panel-head {
 	display: flex; align-items: center; gap: 4px; padding: 8px 12px;
