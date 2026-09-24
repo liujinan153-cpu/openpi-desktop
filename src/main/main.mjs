@@ -106,7 +106,7 @@ function createWindow() {
 		minHeight: 600,
 		backgroundColor: "#0d1017",
 		title: "OpenPi Desktop",
-		icon: path.join(__dirname, "..", "build", "icon.png"), /* UI v3.1：品牌菱形图标 */
+		icon: path.join(__dirname, "..", "build", "icon.ico"), /* UI v3.1：Windows 必须用 ICO（PNG 会被静默忽略回退默认标） */
 		webPreferences: {
 			preload: path.join(__dirname, "preload.cjs"),
 			contextIsolation: true,
@@ -142,6 +142,7 @@ app.whenReady().then(async () => {
 	await ensureShellEnv(); // P40.2：PATH 保险，必须早于任何 bash/SDK 子进程
 	app.setAppUserModelId("dev.openpi.desktop"); // Windows toast 通知来源标识（与 appId 一致）
 	const win = createWindow();
+	try { const { nativeImage } = require("electron"); const ic = nativeImage.createFromPath(path.join(__dirname, "..", "build", "icon.ico")); if (!ic.isEmpty()) win.setIcon(ic); } catch {} /* UI v3.1 兜底：确保标题栏/任务栏图标 */
 	// P44：会话全文索引（FTS5 trigram）；引擎不可用自动降级旧扫描。启动后台同步，不阻塞
 	const sIndex = new SessionIndex(process.env.OPENPI_INDEX_DB || path.join(app.getPath("userData"), "sessions-index.db"), [SESSIONS_ROOT]);
 	setTimeout(() => {
